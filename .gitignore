@@ -216,3 +216,17 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- Projeto ---
+# Memória de sessão da IA (local, nunca versionada)
+/CLAUDE.md
+# Material de contexto local (brief, notas, referências)
+/context/
+# Dados brutos, intermediários e processados (pesados; mídia do YouTube não é redistribuída)
+/data/
+# Registro de experimentos do MLflow (local)
+/mlruns/
+/mlartifacts/
+# Cookies exportados para o yt-dlp
+# (sem âncora: cookies não devem ser versionados em nenhum nível)
+cookies*.txt
