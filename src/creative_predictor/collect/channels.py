@@ -108,7 +108,8 @@ class Candidate(BaseModel):
 
     @property
     def key(self) -> str:
-        return self.channel_id or self.handle
+        # Handles do YouTube não diferenciam maiúsculas de minúsculas.
+        return self.channel_id or self.handle.lower()
 
 
 class Validation(BaseModel):
@@ -327,7 +328,9 @@ def is_low_engagement(median_views: float | None, median_likes: float | None) ->
 
 
 def _channel_entries(rows: pd.DataFrame) -> list[dict]:
-    rows = rows.sort_values(["sector", "region", "kind", "name"])
+    rows = rows.sort_values(
+        ["sector", "region", "kind", "name"], key=lambda col: col.str.lower()
+    )
     return [
         {
             "channel_id": row.channel_id,

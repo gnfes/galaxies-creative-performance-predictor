@@ -9,24 +9,26 @@
 #
 # Critérios objetivos, aplicados pela validação: ao menos 50 Shorts publicados
 # na janela de coleta (15/10/2024 a 28/08/2026) e no máximo 30% dos 50 Shorts
-# mais recentes com curtidas abaixo de 0,3% das views (sinal de views pagas). `holdout: true` reserva canais ativos abaixo desse
-# mínimo para fora do treino (demonstração e avaliação de canais com poucos
-# Shorts).
+# mais recentes com curtidas abaixo de 0,3% das views (sinal de views pagas).
+#
+# `holdout: true` reserva para fora do treino canais com menos de 50 Shorts na
+# janela, mas ainda ativos, para a demonstração e para avaliar o modelo em
+# canais com poucos Shorts.
 #
 # Critério de conteúdo, conferido nos títulos dos Shorts: conteúdo próprio do
 # canal, dentro do setor. Saem, com `exclude: <motivo>`, canais de lifestyle,
 # reacts, compilações, postagem automática e peças de anúncio.
 #
-# Ficam aqui só canais oficiais (conferidos pelo título e pela descrição),
-# inclusive os reprovados, para registrar que foram considerados. Handles
-# inexistentes ou que pertencem a outro canal foram retirados. Marcas cujo canal
-# oficial não foi encontrado (os handles óbvios são de canais sem relação com a
-# marca): GAC, GWM, Renner, C&A, Shein Brasil.
+# Ficam aqui só canais oficiais (conferidos pelo título e, nos casos
+# duvidosos, pela descrição), inclusive os reprovados, para registrar que foram
+# considerados. Handles inexistentes ou que pertencem a outro canal foram
+# retirados. Marcas cujo canal oficial não foi encontrado (os handles óbvios são
+# de canais sem relação com a marca): GAC, GWM, Renner, C&A, Shein Brasil.
 
 candidates:
   # ── Beleza ─────────────────────────────────────────────────────────────
-  # Âncoras: L'Oréal e Natura (grupos com marcas de beleza no Brasil) e
-  # concorrentes diretos.
+  # Grandes grupos de beleza com operação no Brasil (L'Oréal, Natura,
+  # Boticário), concorrentes e criadores de maquiagem, skincare e cabelo.
   - {handle: lorealparisbrasil, name: L'Oréal Paris Brasil, sector: beleza, region: br, kind: marca}
   - {handle: maybellinenybrasil, name: Maybelline Brasil, sector: beleza, region: br, kind: marca}
   - {handle: garnierbrasil, name: Garnier Brasil, sector: beleza, region: br, kind: marca, holdout: true}
@@ -77,8 +79,7 @@ candidates:
   - {handle: patrickstarrr, name: Patrick Starrr, sector: beleza, region: global, kind: criador}
 
   # ── Moda ───────────────────────────────────────────────────────────────
-  # Sem âncora entre os clientes; varejo de moda e calçados com forte
-  # presença em vídeo curto.
+  # Varejo de moda e calçados e criadores de estilo, provador e compras.
   - {handle: riachuelo, name: Riachuelo, sector: moda, region: br, kind: marca, holdout: true}
   - {handle: farmrio, name: Farm Rio, sector: moda, region: br, kind: marca}
   - {handle: havaianas, name: Havaianas, sector: moda, region: br, kind: marca}
@@ -131,8 +132,8 @@ candidates:
   - {handle: brittanyxavier, name: Brittany Xavier, sector: moda, region: global, kind: criador, exclude: "88% dos Shorts sobre família, finanças e rotina, fora de moda"}
 
   # ── Automotivo ─────────────────────────────────────────────────────────
-  # Âncora: GAC (montadora chinesa que chegou ao Brasil em 2025) e as demais
-  # montadoras com operação no país, chinesas e tradicionais.
+  # Montadoras com operação no Brasil, chinesas e tradicionais, e mídia e
+  # criadores especializados.
   - {handle: bydbrasil, name: BYD Brasil, sector: automotivo, region: br, kind: marca}
   - {handle: caoachery, name: CAOA Chery, sector: automotivo, region: br, kind: marca}
   - {handle: omodajaecoobrasil, name: Omoda Jaecoo Brasil, sector: automotivo, region: br, kind: marca}

@@ -28,16 +28,16 @@ channels:
   region: br
   kind: criador
   low_engagement: false
-- channel_id: UChUvS75BR7ziAr7WhrecVsA
-  handle: '@autopapo'
-  name: AutoPapo
+- channel_id: UCWYuQ9_2boHBxm59n6lSzDA
+  handle: '@autoesporte'
+  name: Autoesporte
   sector: automotivo
   region: br
   kind: criador
   low_engagement: false
-- channel_id: UCWYuQ9_2boHBxm59n6lSzDA
-  handle: '@autoesporte'
-  name: Autoesporte
+- channel_id: UChUvS75BR7ziAr7WhrecVsA
+  handle: '@autopapo'
+  name: AutoPapo
   sector: automotivo
   region: br
   kind: criador
@@ -73,6 +73,13 @@ channels:
 - channel_id: UCV7ZpRaSA8EsuCNT3ouygWQ
   handle: '@carrosdoxenao'
   name: Carros do Xenão
+  sector: automotivo
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UC0vIp6Bzz1SeFNnFFdm_cUw
+  handle: '@carwowbrasil'
+  name: carwow Brasil
   sector: automotivo
   region: br
   kind: criador
@@ -119,13 +126,6 @@ channels:
   region: br
   kind: criador
   low_engagement: false
-- channel_id: UC0vIp6Bzz1SeFNnFFdm_cUw
-  handle: '@carwowbrasil'
-  name: carwow Brasil
-  sector: automotivo
-  region: br
-  kind: criador
-  low_engagement: false
 - channel_id: UCV1aAz5q_yh3jMOnLa-lk7Q
   handle: '@fordbrasil'
   name: Ford Brasil
@@ -154,6 +154,13 @@ channels:
   region: br
   kind: marca
   low_engagement: false
+- channel_id: UCUhFaUpnq31m6TNX2VKVSVA
+  handle: '@carwow'
+  name: carwow
+  sector: automotivo
+  region: global
+  kind: criador
+  low_engagement: false
 - channel_id: UCsqjHFMB_JYTaEnf_vmTNqg
   handle: '@dougdemuro'
   name: Doug DeMuro
@@ -164,13 +171,6 @@ channels:
 - channel_id: UCKSVUHI9rbbkXhvAXK-2uxA
   handle: '@supercarblondie'
   name: Supercar Blondie
-  sector: automotivo
-  region: global
-  kind: criador
-  low_engagement: false
-- channel_id: UCUhFaUpnq31m6TNX2VKVSVA
-  handle: '@carwow'
-  name: carwow
   sector: automotivo
   region: global
   kind: criador
@@ -399,6 +399,13 @@ channels:
   region: global
   kind: marca
   low_engagement: false
+- channel_id: UCYBe3cPCbjUManWo2Mg8tNg
+  handle: '@elfcosmetics'
+  name: e.l.f. Cosmetics
+  sector: beleza
+  region: global
+  kind: marca
+  low_engagement: false
 - channel_id: UC0HVR9T6oFS3veefhGCGEsw
   handle: '@fentybeauty'
   name: Fenty Beauty
@@ -444,13 +451,6 @@ channels:
 - channel_id: UC9YX5x_VU8gfe0Oui0TaLJg
   handle: '@sephora'
   name: Sephora
-  sector: beleza
-  region: global
-  kind: marca
-  low_engagement: false
-- channel_id: UCYBe3cPCbjUManWo2Mg8tNg
-  handle: '@elfcosmetics'
-  name: e.l.f. Cosmetics
   sector: beleza
   region: global
   kind: marca
@@ -602,6 +602,13 @@ channels:
   region: br
   kind: marca
   low_engagement: true
+- channel_id: UCuLUOxd7ezJ8c6NSLBNRRfg
+  handle: '@adidas'
+  name: adidas
+  sector: moda
+  region: global
+  kind: marca
+  low_engagement: false
 - channel_id: UCj_Viyrgtv3nZBT4ButX6uQ
   handle: '@asos'
   name: ASOS
@@ -640,13 +647,6 @@ channels:
 - channel_id: UCa8RD6FJLllG4nBskvhOGZw
   handle: '@zara'
   name: Zara
-  sector: moda
-  region: global
-  kind: marca
-  low_engagement: false
-- channel_id: UCuLUOxd7ezJ8c6NSLBNRRfg
-  handle: '@adidas'
-  name: adidas
   sector: moda
   region: global
   kind: marca

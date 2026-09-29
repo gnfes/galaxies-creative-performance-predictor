@@ -512,3 +512,22 @@ def test_export_command_asks_to_revalidate_old_csv(tmp_path, monkeypatch):
     monkeypatch.setattr(channels, "VALIDATION_PATH", old)
     with pytest.raises(SystemExit, match="Rode `validate` de novo"):
         channels.main(["export"])
+
+
+def test_candidate_key_ignores_handle_case():
+    assert candidate(handle="@Jequiti").key == "@jequiti"
+    validation = pd.DataFrame([validation_row("jequiti")])
+    aligned = channels.apply_candidates(validation, [candidate(handle="Jequiti")])
+    assert list(aligned["key"]) == ["@jequiti"]
+
+
+def test_export_channels_sorts_names_ignoring_case():
+    validation = pd.DataFrame(
+        [
+            validation_row("b", name="adidas"),
+            validation_row("a", name="Zara"),
+            validation_row("c", name="Dior"),
+        ]
+    )
+    names = [c["name"] for c in channels.export_channels(validation)["channels"]]
+    assert names == ["adidas", "Dior", "Zara"]
