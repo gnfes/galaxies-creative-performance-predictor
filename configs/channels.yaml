@@ -231,13 +231,6 @@ channels:
   region: br
   kind: criador
   low_engagement: false
-- channel_id: UCTL0v74kUPTqfISBXyQB6JQ
-  handle: '@cabeloderainhalucianamachado'
-  name: Cabelo de Rainha (Luciana Machado)
-  sector: beleza
-  region: br
-  kind: criador
-  low_engagement: false
 - channel_id: UCKq_oJatXdyIWTqlkR-ra5g
   handle: '@carinaaravjo'
   name: Carina Araújo
@@ -602,13 +595,6 @@ channels:
   region: br
   kind: marca
   low_engagement: true
-- channel_id: UCmR9GomJR7Cs-PTipnDdseg
-  handle: '@lojastorra'
-  name: Lojas Torra
-  sector: moda
-  region: br
-  kind: marca
-  low_engagement: true
 - channel_id: UCbNWIQcHEj6Y1g467UyPpBQ
   handle: '@pernambucanas'
   name: Pernambucanas
@@ -616,13 +602,6 @@ channels:
   region: br
   kind: marca
   low_engagement: true
-- channel_id: UCvTdxWQ_Wzz9Ea_g_axS_ZA
-  handle: '@brittanyxavier'
-  name: Brittany Xavier
-  sector: moda
-  region: global
-  kind: criador
-  low_engagement: false
 - channel_id: UCj_Viyrgtv3nZBT4ButX6uQ
   handle: '@asos'
   name: ASOS
@@ -654,13 +633,6 @@ channels:
 - channel_id: UCUFgkRb0ZHc4Rpq15VRCICA
   handle: '@nike'
   name: Nike
-  sector: moda
-  region: global
-  kind: marca
-  low_engagement: false
-- channel_id: UCyLC0byWRwTw16Gc74SPp9w
-  handle: '@sheinofficial'
-  name: SHEIN
   sector: moda
   region: global
   kind: marca

@@ -52,7 +52,7 @@ candidates:
   - {handle: skincaredodanilo, name: Skincare do Danilo, sector: beleza, region: br, kind: criador}
   - {handle: juliadoorman, name: Julia Doorman, sector: beleza, region: br, kind: criador}
   - {handle: raphabartowski, name: Rapha Bartowski, sector: beleza, region: br, kind: criador, exclude: "reacts de vídeos de terceiros"}
-  - {handle: cabeloderainhalucianamachado, name: Cabelo de Rainha (Luciana Machado), sector: beleza, region: br, kind: criador}
+  - {handle: cabeloderainhalucianamachado, name: Cabelo de Rainha (Luciana Machado), sector: beleza, region: br, kind: criador, exclude: "série em massa de clipes de peruca com o mesmo título (29 de 40 na amostra)"}
   - {handle: carolkyoko, name: Carol Kyoko, sector: beleza, region: br, kind: criador}
   - {handle: carinaaravjo, name: Carina Araújo, sector: beleza, region: br, kind: criador}
   - {handle: byesterlima, name: Ester Lima, sector: beleza, region: br, kind: criador}
@@ -116,19 +116,19 @@ candidates:
   - {handle: sneakersbrvideos, name: SneakersBR, sector: moda, region: br, kind: criador}
   - {handle: adriana2717, name: Adriana Oliveira (loja), sector: moda, region: br, kind: marca}
   - {handle: pernambucanas, name: Pernambucanas, sector: moda, region: br, kind: marca}
-  - {handle: lojastorra, name: Lojas Torra, sector: moda, region: br, kind: marca}
+  - {handle: lojastorra, name: Lojas Torra, sector: moda, region: br, kind: marca, exclude: "no limite de views pagas (30% dos Shorts recentes) e mediana de 5 curtidas"}
   - {handle: olympikus, name: Olympikus, sector: moda, region: br, kind: marca, exclude: "corrida e esporte, fora de moda"}
   - {handle: zara, name: Zara, sector: moda, region: global, kind: marca}
   - {handle: hennesandmauritz, name: H&M, sector: moda, region: global, kind: marca, holdout: true}
   - {handle: nike, name: Nike, sector: moda, region: global, kind: marca}
   - {handle: adidas, name: adidas, sector: moda, region: global, kind: marca}
-  - {handle: sheinofficial, name: SHEIN, sector: moda, region: global, kind: marca}
+  - {handle: sheinofficial, name: SHEIN, sector: moda, region: global, kind: marca, exclude: "metade dos Shorts sobre casa, celular e utensílios, fora de moda"}
   - {handle: gucci, name: Gucci, sector: moda, region: global, kind: marca}
   - {handle: louisvuitton, name: Louis Vuitton, sector: moda, region: global, kind: marca}
   - {handle: dior, name: Dior, sector: moda, region: global, kind: marca}
   - {handle: asos, name: ASOS, sector: moda, region: global, kind: marca}
   - {handle: uniqlo, name: UNIQLO, sector: moda, region: global, kind: marca}
-  - {handle: brittanyxavier, name: Brittany Xavier, sector: moda, region: global, kind: criador}
+  - {handle: brittanyxavier, name: Brittany Xavier, sector: moda, region: global, kind: criador, exclude: "88% dos Shorts sobre família, finanças e rotina, fora de moda"}
 
   # ── Automotivo ─────────────────────────────────────────────────────────
   # Âncora: GAC (montadora chinesa que chegou ao Brasil em 2025) e as demais
