@@ -1,0 +1,139 @@
+# Candidatos a canal da base de YouTube Shorts.
+#
+# Validados por `python -m creative_predictor.collect.channels validate`; os
+# aprovados vão para configs/channels.yaml. Um candidato cortado na revisão
+# fica aqui com `exclude: <motivo>`, para a decisão ficar registrada.
+#
+# Campos: handle (ou channel_id), name, sector (moda | beleza | automotivo),
+# region (br | global), kind (marca | criador). Veículos de mídia especializada
+# contam como `criador`. `holdout: true` reserva marcas ativas abaixo do
+# mínimo de Shorts para a demonstração, fora do treino.
+#
+# Ficam aqui só canais oficiais (conferidos pelo título e pela descrição),
+# inclusive os reprovados pelos critérios, para registrar que foram
+# considerados. Handles inexistentes ou que pertencem a outro canal foram
+# retirados. Marcas cujo canal oficial não foi encontrado (os handles óbvios
+# são de canais sem relação com a marca): GAC, GWM, Renner, Shein Brasil.
+
+candidates:
+  # ── Beleza ─────────────────────────────────────────────────────────────
+  # Âncoras: L'Oréal e Natura (grupos com marcas de beleza no Brasil) e
+  # concorrentes diretos.
+  - {handle: lorealparisbrasil, name: L'Oréal Paris Brasil, sector: beleza, region: br, kind: marca}
+  - {handle: maybellinenybrasil, name: Maybelline Brasil, sector: beleza, region: br, kind: marca}
+  - {handle: garnierbrasil, name: Garnier Brasil, sector: beleza, region: br, kind: marca, holdout: true}
+  - {handle: naturabemestarbem, name: Natura, sector: beleza, region: br, kind: marca}
+  - {handle: avon, name: Avon, sector: beleza, region: global, kind: marca}
+  - {handle: boticario, name: O Boticário, sector: beleza, region: br, kind: marca}
+  - {handle: eudora, name: Eudora, sector: beleza, region: br, kind: marca}
+  - {handle: quemdisseberenice, name: Quem Disse Berenice, sector: beleza, region: br, kind: marca, holdout: true}
+  - {handle: sallve, name: Sallve, sector: beleza, region: br, kind: marca}
+  - {handle: marimaria, name: Mari Maria, sector: beleza, region: br, kind: criador}
+  - {handle: niinasecrets, name: Niina Secrets, sector: beleza, region: br, kind: criador}
+  - {handle: karenbachini, name: Karen Bachini, sector: beleza, region: br, kind: criador}
+  - {handle: francinyehlke, name: Franciny Ehlke, sector: beleza, region: br, kind: criador}
+  - {handle: principiaskincare, name: Principia, sector: beleza, region: br, kind: marca}
+  - {handle: salonlinebrasil, name: Salon Line, sector: beleza, region: br, kind: marca}
+  - {handle: sephorabrasil, name: Sephora Brasil, sector: beleza, region: br, kind: marca}
+  - {handle: belezanaweb, name: Beleza na Web, sector: beleza, region: br, kind: marca}
+  - {handle: thassyanemiranda, name: Thassyane Miranda, sector: beleza, region: br, kind: criador}
+  - {handle: shaaymakeup, name: Shay Makeup, sector: beleza, region: br, kind: criador}
+  - {handle: maquiageminspiradora, name: Maquiagem Inspiradora, sector: beleza, region: br, kind: criador}
+  - {handle: belezacomdu, name: Beleza com Du, sector: beleza, region: br, kind: criador}
+  - {handle: nathsouzaof, name: Nath Souza, sector: beleza, region: br, kind: criador}
+  - {handle: skincaredodanilo, name: Skincare do Danilo, sector: beleza, region: br, kind: criador}
+  - {handle: juliadoorman, name: Julia Doorman, sector: beleza, region: br, kind: criador}
+  - {handle: raphabartowski, name: Rapha Bartowski, sector: beleza, region: br, kind: criador}
+  - {handle: cabeloderainhalucianamachado, name: Cabelo de Rainha (Luciana Machado), sector: beleza, region: br, kind: criador}
+  - {handle: lorealparisusa, name: L'Oréal Paris USA, sector: beleza, region: global, kind: marca}
+  - {handle: maybellinenewyork, name: Maybelline New York, sector: beleza, region: global, kind: marca}
+  - {handle: cerave, name: CeraVe, sector: beleza, region: global, kind: marca}
+  - {handle: fentybeauty, name: Fenty Beauty, sector: beleza, region: global, kind: marca}
+  - {handle: rarebeauty, name: Rare Beauty, sector: beleza, region: global, kind: marca}
+  - {handle: elfcosmetics, name: e.l.f. Cosmetics, sector: beleza, region: global, kind: marca}
+  - {handle: nyxcosmetics, name: NYX Professional Makeup, sector: beleza, region: global, kind: marca}
+  - {handle: sephora, name: Sephora, sector: beleza, region: global, kind: marca}
+  - {handle: hudabeauty, name: Huda Beauty, sector: beleza, region: global, kind: marca}
+  - {handle: jamescharles, name: James Charles, sector: beleza, region: global, kind: criador}
+  - {handle: nikkietutorials, name: NikkieTutorials, sector: beleza, region: global, kind: criador}
+  - {handle: jackieaina, name: Jackie Aina, sector: beleza, region: global, kind: criador}
+  - {handle: patrickstarrr, name: Patrick Starrr, sector: beleza, region: global, kind: criador}
+
+  # ── Moda ───────────────────────────────────────────────────────────────
+  # Sem âncora entre os clientes; varejo de moda e calçados com forte
+  # presença em vídeo curto.
+  - {handle: riachuelo, name: Riachuelo, sector: moda, region: br, kind: marca}
+  - {handle: farmrio, name: Farm Rio, sector: moda, region: br, kind: marca}
+  - {handle: havaianas, name: Havaianas, sector: moda, region: br, kind: marca}
+  - {handle: heringoficial, name: Hering, sector: moda, region: br, kind: marca}
+  - {handle: dafiti, name: Dafiti, sector: moda, region: br, kind: marca}
+  - {handle: netshoes, name: Netshoes, sector: moda, region: br, kind: marca}
+  - {handle: usereserva, name: Reserva, sector: moda, region: br, kind: marca}
+  - {handle: insiderstore, name: Insider, sector: moda, region: br, kind: marca}
+  - {handle: thassianaves, name: Thássia Naves, sector: moda, region: br, kind: criador}
+  - {handle: garotasestupidas, name: Camila Coutinho, sector: moda, region: br, kind: criador}
+  - {handle: kimdamoda, name: Kim da Moda, sector: moda, region: br, kind: criador}
+  - {handle: thimartins, name: Thi Martins, sector: moda, region: br, kind: criador}
+  - {handle: modamasculina, name: Moda Masculina, sector: moda, region: br, kind: criador}
+  - {handle: machomoda, name: Macho Moda, sector: moda, region: br, kind: criador}
+  - {handle: camilagaio, name: Camila Gaio, sector: moda, region: br, kind: criador, holdout: true}
+  - {handle: dicaseciafashion, name: Dicas & Cia Fashion, sector: moda, region: br, kind: criador}
+  - {handle: estiloemdobro, name: Estilo em Dobro, sector: moda, region: br, kind: criador}
+  - {handle: faculdadedeestilo, name: Faculdade de Estilo, sector: moda, region: br, kind: criador}
+  - {handle: marciafelini, name: Márcia Felini, sector: moda, region: br, kind: criador}
+  - {handle: migarcia, name: Mi Gárcia, sector: moda, region: br, kind: criador}
+  - {handle: alinibosko, name: Alini Bosko, sector: moda, region: br, kind: criador}
+  - {handle: ritasaraiiva, name: Rita Saraiva, sector: moda, region: br, kind: criador}
+  - {handle: raisabrito, name: Raisa Brito, sector: moda, region: br, kind: criador}
+  - {handle: thaismelo.souzatm, name: Thaís Melo, sector: moda, region: br, kind: criador}
+  - {handle: teniscerto, name: Tênis Certo, sector: moda, region: br, kind: criador}
+  - {handle: jvrsneakers, name: JVR Sneakers, sector: moda, region: br, kind: criador}
+  - {handle: zara, name: Zara, sector: moda, region: global, kind: marca}
+  - {handle: hennesandmauritz, name: H&M, sector: moda, region: global, kind: marca, holdout: true}
+  - {handle: nike, name: Nike, sector: moda, region: global, kind: marca}
+  - {handle: adidas, name: adidas, sector: moda, region: global, kind: marca}
+  - {handle: sheinofficial, name: SHEIN, sector: moda, region: global, kind: marca}
+  - {handle: gucci, name: Gucci, sector: moda, region: global, kind: marca}
+  - {handle: louisvuitton, name: Louis Vuitton, sector: moda, region: global, kind: marca}
+  - {handle: dior, name: Dior, sector: moda, region: global, kind: marca}
+  - {handle: asos, name: ASOS, sector: moda, region: global, kind: marca}
+  - {handle: uniqlo, name: UNIQLO, sector: moda, region: global, kind: marca}
+  - {handle: brittanyxavier, name: Brittany Xavier, sector: moda, region: global, kind: criador}
+
+  # ── Automotivo ─────────────────────────────────────────────────────────
+  # Âncora: GAC (montadora chinesa que chegou ao Brasil em 2025) e as demais
+  # montadoras com operação no país, chinesas e tradicionais.
+  - {handle: bydbrasil, name: BYD Brasil, sector: automotivo, region: br, kind: marca}
+  - {handle: caoachery, name: CAOA Chery, sector: automotivo, region: br, kind: marca}
+  - {handle: omodajaecoobrasil, name: Omoda Jaecoo Brasil, sector: automotivo, region: br, kind: marca}
+  - {handle: fiat, name: Fiat, sector: automotivo, region: global, kind: marca}
+  - {handle: volkswagendobrasil, name: Volkswagen do Brasil, sector: automotivo, region: br, kind: marca}
+  - {handle: chevroletbrasil, name: Chevrolet Brasil, sector: automotivo, region: br, kind: marca}
+  - {handle: toyotabrasil, name: Toyota do Brasil, sector: automotivo, region: br, kind: marca, holdout: true}
+  - {handle: hyundaibr, name: Hyundai Motor Brasil, sector: automotivo, region: br, kind: marca}
+  - {handle: renaultbrasil, name: Renault Brasil, sector: automotivo, region: br, kind: marca}
+  - {handle: jeepdobrasil, name: Jeep Brasil, sector: automotivo, region: br, kind: marca, holdout: true}
+  - {handle: nissanbrasil, name: Nissan Brasil, sector: automotivo, region: br, kind: marca}
+  - {handle: autoesporte, name: Autoesporte, sector: automotivo, region: br, kind: criador}
+  - {handle: quatrorodas, name: Quatro Rodas, sector: automotivo, region: br, kind: criador}
+  - {handle: autopapo, name: AutoPapo, sector: automotivo, region: br, kind: criador}
+  - {handle: acelerados, name: Acelerados, sector: automotivo, region: br, kind: criador}
+  - {handle: webmotors, name: Webmotors, sector: automotivo, region: br, kind: criador}
+  - {handle: garagemdobellotetv, name: Garagem do Bellote, sector: automotivo, region: br, kind: criador}
+  - {handle: motor1brasil, name: Motor1 Brasil, sector: automotivo, region: br, kind: criador}
+  - {handle: carrochefe, name: Carro Chefe, sector: automotivo, region: br, kind: criador}
+  - {handle: carroscomcamanzi, name: Carros com Camanzi, sector: automotivo, region: br, kind: criador}
+  - {handle: uolcarros, name: UOL Carros, sector: automotivo, region: br, kind: criador}
+  - {handle: carrodereview, name: Carro de Review, sector: automotivo, region: br, kind: criador}
+  - {handle: carwowbrasil, name: carwow Brasil, sector: automotivo, region: br, kind: criador}
+  - {handle: bmw, name: BMW, sector: automotivo, region: global, kind: marca}
+  - {handle: mercedesbenz, name: Mercedes-Benz, sector: automotivo, region: global, kind: marca}
+  - {handle: porsche, name: Porsche, sector: automotivo, region: global, kind: marca}
+  - {handle: toyotausa, name: Toyota USA, sector: automotivo, region: global, kind: marca}
+  - {handle: ford, name: Ford, sector: automotivo, region: global, kind: marca}
+  - {handle: tesla, name: Tesla, sector: automotivo, region: global, kind: marca}
+  - {handle: topgear, name: Top Gear, sector: automotivo, region: global, kind: criador}
+  - {handle: dougdemuro, name: Doug DeMuro, sector: automotivo, region: global, kind: criador}
+  - {handle: supercarblondie, name: Supercar Blondie, sector: automotivo, region: global, kind: criador}
+  - {handle: carwow, name: carwow, sector: automotivo, region: global, kind: criador}
+  - {handle: throttlehouse, name: Throttle House, sector: automotivo, region: global, kind: criador}

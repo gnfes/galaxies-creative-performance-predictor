@@ -323,3 +323,10 @@ def test_export_channels_rejects_mixed_cutoffs():
 )
 def test_is_low_engagement(views, likes, expected):
     assert channels.is_low_engagement(views, likes) is expected
+
+
+def test_candidates_file_is_valid():
+    candidates = channels.load_candidates()
+    keys = [c.key.lower() for c in candidates]
+    assert len(keys) == len(set(keys)), "candidato duplicado"
+    assert {c.sector for c in candidates} == set(channels.Sector)

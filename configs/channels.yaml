@@ -1,0 +1,685 @@
+# Gerado por `python -m creative_predictor.collect.channels export` a partir de
+# configs/channel_candidates.yaml; não editar à mão.
+#
+# channels: canais da base (treino e teste). holdout_channels: canais fora do
+# treino, usados na demonstração com métrica real conhecida.
+# low_engagement: mediana de curtidas < 10 (ou de views < 1.000, se as
+# curtidas estão ocultas) nos 50 Shorts mais recentes antes do corte.
+cutoff: '2026-08-28'
+min_shorts: 50
+max_shorts_per_channel: 300
+media_shorts_per_channel: 120
+channels:
+- channel_id: UCGBIIPnw0AYM3BFsmTsjeAw
+  handle: '@acelerados'
+  name: Acelerados
+  sector: automotivo
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UChUvS75BR7ziAr7WhrecVsA
+  handle: '@autopapo'
+  name: AutoPapo
+  sector: automotivo
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCWYuQ9_2boHBxm59n6lSzDA
+  handle: '@autoesporte'
+  name: Autoesporte
+  sector: automotivo
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCMk1wBIsHmalYeE16GkD6bg
+  handle: '@carrochefe'
+  name: Carro Chefe
+  sector: automotivo
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCUBTwlpNFzf9M5-H6R2b2MA
+  handle: '@carrodereview'
+  name: Carro de Review
+  sector: automotivo
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UChU6qQR8Af0Xd3LSbQHN2sA
+  handle: '@carroscomcamanzi'
+  name: Carros com Camanzi
+  sector: automotivo
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCCykAaNbtxUpGwvkSYWWSKg
+  handle: '@garagemdobellotetv'
+  name: Garagem do Bellote
+  sector: automotivo
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UC6Rk7BKVPWkFJ9FiBrts5Vg
+  handle: '@motor1brasil'
+  name: Motor1 Brasil
+  sector: automotivo
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCIvQJmPaDR2lMDDNhb4--bA
+  handle: '@quatrorodas'
+  name: Quatro Rodas
+  sector: automotivo
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCQ6QYphyBhYube7E4HtSKMA
+  handle: '@uolcarros'
+  name: UOL Carros
+  sector: automotivo
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCz2Bb7YdduN4x7qN9oFrJjQ
+  handle: '@webmotors'
+  name: Webmotors
+  sector: automotivo
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UC0vIp6Bzz1SeFNnFFdm_cUw
+  handle: '@carwowbrasil'
+  name: carwow Brasil
+  sector: automotivo
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCMDN2p8PMyBoMVDpOQ5r9Ew
+  handle: '@bydbrasil'
+  name: BYD Brasil
+  sector: automotivo
+  region: br
+  kind: marca
+  low_engagement: false
+- channel_id: UCRojKYdkvZcRQX1Vu7wEU5g
+  handle: '@chevroletbrasil'
+  name: Chevrolet Brasil
+  sector: automotivo
+  region: br
+  kind: marca
+  low_engagement: false
+- channel_id: UCnBYf03jmMPiABvbSYbxMcA
+  handle: '@hyundaibr'
+  name: Hyundai Motor Brasil
+  sector: automotivo
+  region: br
+  kind: marca
+  low_engagement: false
+- channel_id: UChpihrq2RRLyzgLtpcoMVbw
+  handle: '@nissanbrasil'
+  name: Nissan Brasil
+  sector: automotivo
+  region: br
+  kind: marca
+  low_engagement: false
+- channel_id: UC1ZHtRLTK0Lrl1N6DVGshgg
+  handle: '@renaultbrasil'
+  name: Renault Brasil
+  sector: automotivo
+  region: br
+  kind: marca
+  low_engagement: false
+- channel_id: UCBXtBstNh5iIgm07keup0Gw
+  handle: '@volkswagendobrasil'
+  name: Volkswagen do Brasil
+  sector: automotivo
+  region: br
+  kind: marca
+  low_engagement: false
+- channel_id: UCsqjHFMB_JYTaEnf_vmTNqg
+  handle: '@dougdemuro'
+  name: Doug DeMuro
+  sector: automotivo
+  region: global
+  kind: criador
+  low_engagement: false
+- channel_id: UCKSVUHI9rbbkXhvAXK-2uxA
+  handle: '@supercarblondie'
+  name: Supercar Blondie
+  sector: automotivo
+  region: global
+  kind: criador
+  low_engagement: false
+- channel_id: UCUhFaUpnq31m6TNX2VKVSVA
+  handle: '@carwow'
+  name: carwow
+  sector: automotivo
+  region: global
+  kind: criador
+  low_engagement: false
+- channel_id: UCYwrS5QvBY_JbSdbINLey6Q
+  handle: '@bmw'
+  name: BMW
+  sector: automotivo
+  region: global
+  kind: marca
+  low_engagement: false
+- channel_id: UCKA96UxTdgFBwGZMGZ-135w
+  handle: '@ford'
+  name: Ford
+  sector: automotivo
+  region: global
+  kind: marca
+  low_engagement: false
+- channel_id: UClj0L8WZrVydk5xKOscI6-A
+  handle: '@mercedesbenz'
+  name: Mercedes-Benz
+  sector: automotivo
+  region: global
+  kind: marca
+  low_engagement: false
+- channel_id: UC_BaxRhNREI_V0DVXjXDALA
+  handle: '@porsche'
+  name: Porsche
+  sector: automotivo
+  region: global
+  kind: marca
+  low_engagement: false
+- channel_id: UC5WjFrtBdufl6CZojX3D8dQ
+  handle: '@tesla'
+  name: Tesla
+  sector: automotivo
+  region: global
+  kind: marca
+  low_engagement: false
+- channel_id: UC1pOTJteEef10zJM0cHs4iQ
+  handle: '@toyotausa'
+  name: Toyota USA
+  sector: automotivo
+  region: global
+  kind: marca
+  low_engagement: false
+- channel_id: UC-H4qBmQcuau4l36UDBitjA
+  handle: '@belezacomdu'
+  name: Beleza com Du
+  sector: beleza
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCTL0v74kUPTqfISBXyQB6JQ
+  handle: '@cabeloderainhalucianamachado'
+  name: Cabelo de Rainha (Luciana Machado)
+  sector: beleza
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCoTM-vvs2hnv2mCvzNJ5uXA
+  handle: '@francinyehlke'
+  name: Franciny Ehlke
+  sector: beleza
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UChdu6L4XoQU1yqX6jGCaRPw
+  handle: '@juliadoorman'
+  name: Julia Doorman
+  sector: beleza
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCYcClChNM-0rjqCGobSfJ4A
+  handle: '@karenbachini'
+  name: Karen Bachini
+  sector: beleza
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCJY3gr0oHBVJqS5mCddrIQQ
+  handle: '@maquiageminspiradora'
+  name: Maquiagem Inspiradora
+  sector: beleza
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCcHR0RvLYk33ppkjBw3UaEA
+  handle: '@marimaria'
+  name: Mari Maria
+  sector: beleza
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UC4fF9JCEv2RHrHwXbHqjDug
+  handle: '@nathsouzaof'
+  name: Nath Souza
+  sector: beleza
+  region: br
+  kind: criador
+  low_engagement: true
+- channel_id: UCAkZ7bimIU9m7wT6Th0FcEw
+  handle: '@niinasecrets'
+  name: Niina Secrets
+  sector: beleza
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCKK5wfsALXtH-C5tDxg_MXw
+  handle: '@raphabartowski'
+  name: Rapha Bartowski
+  sector: beleza
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCNaVC17mx0yedPxZkVPdpew
+  handle: '@shaaymakeup'
+  name: Shay Makeup
+  sector: beleza
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCarhVYHIbkwAE3owosd0YiA
+  handle: '@skincaredodanilo'
+  name: Skincare do Danilo
+  sector: beleza
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCiFHLlEj8Vr5GikrE8t42JA
+  handle: '@thassyanemiranda'
+  name: Thassyane Miranda
+  sector: beleza
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCu4b-uoxVPh64U3NK-4vgpg
+  handle: '@belezanaweb'
+  name: Beleza na Web
+  sector: beleza
+  region: br
+  kind: marca
+  low_engagement: false
+- channel_id: UC1Gb2KWaul8Y4QqP0iEC5pA
+  handle: '@eudora'
+  name: Eudora
+  sector: beleza
+  region: br
+  kind: marca
+  low_engagement: false
+- channel_id: UCSg89B-3bly27fu_5M2rtBQ
+  handle: '@naturabemestarbem'
+  name: Natura
+  sector: beleza
+  region: br
+  kind: marca
+  low_engagement: false
+- channel_id: UCBzHXqTZlKVe_aoDU5cbfRw
+  handle: '@boticario'
+  name: O Boticário
+  sector: beleza
+  region: br
+  kind: marca
+  low_engagement: false
+- channel_id: UCFoC2StbX364fRm6wBBvwmA
+  handle: '@principiaskincare'
+  name: Principia
+  sector: beleza
+  region: br
+  kind: marca
+  low_engagement: true
+- channel_id: UC2ewdOD19Z_81Fo_j2AY3aQ
+  handle: '@sallve'
+  name: Sallve
+  sector: beleza
+  region: br
+  kind: marca
+  low_engagement: false
+- channel_id: UCnjK9YWSbd0AAjHhM3vAu7A
+  handle: '@salonlinebrasil'
+  name: Salon Line
+  sector: beleza
+  region: br
+  kind: marca
+  low_engagement: false
+- channel_id: UCzJIliq68IHSn-Kwgjeg2AQ
+  handle: '@jackieaina'
+  name: Jackie Aina
+  sector: beleza
+  region: global
+  kind: criador
+  low_engagement: false
+- channel_id: UCucot-Zp428OwkyRm2I7v2Q
+  handle: '@jamescharles'
+  name: James Charles
+  sector: beleza
+  region: global
+  kind: criador
+  low_engagement: false
+- channel_id: UCzTKskwIc_-a0cGvCXA848Q
+  handle: '@nikkietutorials'
+  name: NikkieTutorials
+  sector: beleza
+  region: global
+  kind: criador
+  low_engagement: false
+- channel_id: UCDHQbU57NZilrhbuZNbQcRA
+  handle: '@patrickstarrr'
+  name: Patrick Starrr
+  sector: beleza
+  region: global
+  kind: criador
+  low_engagement: false
+- channel_id: UCDl63H5v8gUFRM3Qtm4O4Gw
+  handle: '@avon'
+  name: Avon
+  sector: beleza
+  region: global
+  kind: marca
+  low_engagement: false
+- channel_id: UCxeBIoLvY8Z-HUwlbbg1wNA
+  handle: '@cerave'
+  name: CeraVe
+  sector: beleza
+  region: global
+  kind: marca
+  low_engagement: false
+- channel_id: UC0HVR9T6oFS3veefhGCGEsw
+  handle: '@fentybeauty'
+  name: Fenty Beauty
+  sector: beleza
+  region: global
+  kind: marca
+  low_engagement: false
+- channel_id: UCRSvEADlY-caz3sfDNwvR1A
+  handle: '@hudabeauty'
+  name: Huda Beauty
+  sector: beleza
+  region: global
+  kind: marca
+  low_engagement: false
+- channel_id: UCoC8wK7Hbj1saQUBlFVaJkA
+  handle: '@lorealparisusa'
+  name: L'Oréal Paris USA
+  sector: beleza
+  region: global
+  kind: marca
+  low_engagement: false
+- channel_id: UCq7EY7H2XF6TV7Z5mLv-aNg
+  handle: '@maybellinenewyork'
+  name: Maybelline New York
+  sector: beleza
+  region: global
+  kind: marca
+  low_engagement: false
+- channel_id: UCx4287tWK7d49swYs7siHkQ
+  handle: '@nyxcosmetics'
+  name: NYX Professional Makeup
+  sector: beleza
+  region: global
+  kind: marca
+  low_engagement: false
+- channel_id: UCvOtsjwO04Seaep0J2clYEw
+  handle: '@rarebeauty'
+  name: Rare Beauty
+  sector: beleza
+  region: global
+  kind: marca
+  low_engagement: false
+- channel_id: UC9YX5x_VU8gfe0Oui0TaLJg
+  handle: '@sephora'
+  name: Sephora
+  sector: beleza
+  region: global
+  kind: marca
+  low_engagement: false
+- channel_id: UCYBe3cPCbjUManWo2Mg8tNg
+  handle: '@elfcosmetics'
+  name: e.l.f. Cosmetics
+  sector: beleza
+  region: global
+  kind: marca
+  low_engagement: false
+- channel_id: UCbE19oP8rChKU33hi-AmYvQ
+  handle: '@alinibosko'
+  name: Alini Bosko
+  sector: moda
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCcwlzNsTzuPB5rncCizx53g
+  handle: '@dicaseciafashion'
+  name: Dicas & Cia Fashion
+  sector: moda
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCVQBcsJ18NBzUqGVML7ulxw
+  handle: '@faculdadedeestilo'
+  name: Faculdade de Estilo
+  sector: moda
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCjJ1fFP2Y58KdH56UKr28Qw
+  handle: '@jvrsneakers'
+  name: JVR Sneakers
+  sector: moda
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCJ4ZGkrScTfGPo4R_Ok9seg
+  handle: '@kimdamoda'
+  name: Kim da Moda
+  sector: moda
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCiNK_NdXwJXVD_RjDgCAlNQ
+  handle: '@machomoda'
+  name: Macho Moda
+  sector: moda
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCgqri012bmK5HNkQKSUK2JA
+  handle: '@migarcia'
+  name: Mi Gárcia
+  sector: moda
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCWzL6Qt4YnaH6TmT2C6nDDQ
+  handle: '@modamasculina'
+  name: Moda Masculina
+  sector: moda
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCFFYKuuCiB960rYZNPuAXDA
+  handle: '@marciafelini'
+  name: Márcia Felini
+  sector: moda
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UC2Qe44yRHIuL94ZCf891pgg
+  handle: '@ritasaraiiva'
+  name: Rita Saraiva
+  sector: moda
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCQg7NEquBqs3BgnfPvzi7iQ
+  handle: '@thaismelo.souzatm'
+  name: Thaís Melo
+  sector: moda
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCu6Sd8YmtEtQiBLQr4VZdKA
+  handle: '@thimartins'
+  name: Thi Martins
+  sector: moda
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCaVpzaxGCCrNgZt5l4lh5OA
+  handle: '@teniscerto'
+  name: Tênis Certo
+  sector: moda
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCAokYKP-GJjhusjpEfQtfmw
+  handle: '@dafiti'
+  name: Dafiti
+  sector: moda
+  region: br
+  kind: marca
+  low_engagement: true
+- channel_id: UCrv2g4QkbJw0L79xANq_VNg
+  handle: '@havaianas'
+  name: Havaianas
+  sector: moda
+  region: br
+  kind: marca
+  low_engagement: false
+- channel_id: UCkMSfeELcO0A_ULT8SWZsmQ
+  handle: '@heringoficial'
+  name: Hering
+  sector: moda
+  region: br
+  kind: marca
+  low_engagement: false
+- channel_id: UC_fPq2ty17WAlPkTIdtYmyQ
+  handle: '@insiderstore'
+  name: Insider
+  sector: moda
+  region: br
+  kind: marca
+  low_engagement: true
+- channel_id: UCPH5o1YO07fuZibgrZyqKYQ
+  handle: '@usereserva'
+  name: Reserva
+  sector: moda
+  region: br
+  kind: marca
+  low_engagement: false
+- channel_id: UC68lvr_ENRERr5dAgBvYP7w
+  handle: '@riachuelo'
+  name: Riachuelo
+  sector: moda
+  region: br
+  kind: marca
+  low_engagement: false
+- channel_id: UCvTdxWQ_Wzz9Ea_g_axS_ZA
+  handle: '@brittanyxavier'
+  name: Brittany Xavier
+  sector: moda
+  region: global
+  kind: criador
+  low_engagement: false
+- channel_id: UCj_Viyrgtv3nZBT4ButX6uQ
+  handle: '@asos'
+  name: ASOS
+  sector: moda
+  region: global
+  kind: marca
+  low_engagement: true
+- channel_id: UC6xD-jKli-_qIYXDTsNv4dw
+  handle: '@dior'
+  name: Dior
+  sector: moda
+  region: global
+  kind: marca
+  low_engagement: false
+- channel_id: UCo6fjlKg6GuCmEMeqYbGJng
+  handle: '@gucci'
+  name: Gucci
+  sector: moda
+  region: global
+  kind: marca
+  low_engagement: false
+- channel_id: UC5q0PIKGr2lGOsiT14AlEYg
+  handle: '@louisvuitton'
+  name: Louis Vuitton
+  sector: moda
+  region: global
+  kind: marca
+  low_engagement: false
+- channel_id: UCUFgkRb0ZHc4Rpq15VRCICA
+  handle: '@nike'
+  name: Nike
+  sector: moda
+  region: global
+  kind: marca
+  low_engagement: false
+- channel_id: UCyLC0byWRwTw16Gc74SPp9w
+  handle: '@sheinofficial'
+  name: SHEIN
+  sector: moda
+  region: global
+  kind: marca
+  low_engagement: false
+- channel_id: UCvm-1tfv4nk4dz_EHeRGbXw
+  handle: '@uniqlo'
+  name: UNIQLO
+  sector: moda
+  region: global
+  kind: marca
+  low_engagement: false
+- channel_id: UCa8RD6FJLllG4nBskvhOGZw
+  handle: '@zara'
+  name: Zara
+  sector: moda
+  region: global
+  kind: marca
+  low_engagement: false
+- channel_id: UCuLUOxd7ezJ8c6NSLBNRRfg
+  handle: '@adidas'
+  name: adidas
+  sector: moda
+  region: global
+  kind: marca
+  low_engagement: false
+holdout_channels:
+- channel_id: UCZuERLdGT7WEPKgEPTmbSHg
+  handle: '@jeepdobrasil'
+  name: Jeep Brasil
+  sector: automotivo
+  region: br
+  kind: marca
+  low_engagement: false
+- channel_id: UCsitysA6ZME95b0j5uoAe9Q
+  handle: '@toyotabrasil'
+  name: Toyota do Brasil
+  sector: automotivo
+  region: br
+  kind: marca
+  low_engagement: false
+- channel_id: UCt_0cViEijqNltH8IN5Y63g
+  handle: '@garnierbrasil'
+  name: Garnier Brasil
+  sector: beleza
+  region: br
+  kind: marca
+  low_engagement: false
+- channel_id: UCffgKIBxrgHfemrk4LVZUpw
+  handle: '@quemdisseberenice'
+  name: Quem Disse Berenice
+  sector: beleza
+  region: br
+  kind: marca
+  low_engagement: false
+- channel_id: UCjyoe_EtZfjKDO8-6JIYohQ
+  handle: '@camilagaio'
+  name: Camila Gaio
+  sector: moda
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCoc8tpGCY1wrp8pV7mI0scA
+  handle: '@hennesandmauritz'
+  name: H&M
+  sector: moda
+  region: global
+  kind: marca
+  low_engagement: false
