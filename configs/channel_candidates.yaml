@@ -6,7 +6,7 @@
 #
 # Campos: handle (ou channel_id), name, sector (moda | beleza | automotivo),
 # region (br | global), kind (marca | criador). Veículos de mídia especializada
-# contam como `criador`. `holdout: true` reserva marcas ativas abaixo do
+# contam como `criador`. `holdout: true` reserva canais ativos abaixo do
 # mínimo de Shorts para a demonstração, fora do treino.
 #
 # Ficam aqui só canais oficiais (conferidos pelo título e pela descrição),

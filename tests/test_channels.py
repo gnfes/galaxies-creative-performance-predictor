@@ -3,6 +3,7 @@ from datetime import date
 import httplib2
 import pandas as pd
 import pytest
+import yaml
 from googleapiclient.errors import HttpError
 from pydantic import ValidationError
 
@@ -177,6 +178,17 @@ def test_median_engagement_without_videos(tmp_path):
     assert service.calls == []
 
 
+def test_count_shorts_404_on_later_page_is_an_error(tmp_path):
+    first_page = playlist_pages(["2026-01-01"] * 60)
+
+    def handler(params):
+        return not_found() if "pageToken" in params else first_page(params)
+
+    client, _ = make_client(tmp_path, playlistItems=handler)
+    with pytest.raises(HttpError):
+        channels.count_shorts(client, CHANNEL_ID, CUTOFF)
+
+
 def test_count_shorts_propagates_other_errors(tmp_path):
     error = HttpError(httplib2.Response({"status": 403}), b"quotaExceeded")
     client, _ = make_client(tmp_path, playlistItems=lambda p: error)
@@ -330,3 +342,100 @@ def test_candidates_file_is_valid():
     keys = [c.key.lower() for c in candidates]
     assert len(keys) == len(set(keys)), "candidato duplicado"
     assert {c.sector for c in candidates} == set(channels.Sector)
+
+
+def search_handler(params):
+    return {
+        "items": [{"snippet": {"channelId": "UCa"}}, {"snippet": {"channelId": "UCb"}}]
+    }
+
+
+def test_search_channels_filters_brazil_and_sorts(tmp_path):
+    client, service = make_client(
+        tmp_path,
+        search=search_handler,
+        channels=lambda p: {
+            "items": [
+                {**channel_item("UCa", "@a"), "statistics": {"subscriberCount": "5"}},
+                {**channel_item("UCb", "@b"), "statistics": {"subscriberCount": "9"}},
+            ]
+        },
+    )
+    found = channels.search_channels(client, "maquiagem", br=True)
+    assert list(found["channel_id"]) == ["UCb", "UCa"]
+    assert service.calls[0][1]["regionCode"] == "BR"
+    assert client.quota_used == 101
+
+
+def test_search_channels_handles_removed_channels(tmp_path):
+    client, _ = make_client(
+        tmp_path, search=search_handler, channels=lambda p: {"items": []}
+    )
+    assert channels.search_channels(client, "maquiagem").empty
+
+
+def test_apply_candidates_uses_current_list():
+    validation = pd.DataFrame(
+        [
+            validation_row("a"),
+            validation_row("b"),
+            validation_row("c", holdout=True),
+        ]
+    )
+    current = [
+        candidate(handle="a", holdout=True),  # marcado depois do validate
+        candidate(handle="c"),  # holdout retirado depois do validate
+        candidate(handle="z"),  # ainda não validado
+    ]
+    aligned = channels.apply_candidates(validation, current)
+    assert dict(zip(aligned["key"], aligned["holdout"])) == {"@a": True, "@c": False}
+
+
+def test_apply_candidates_drops_excluded():
+    validation = pd.DataFrame([validation_row("a"), validation_row("b")])
+    current = [candidate(handle="a"), candidate(handle="b", exclude="fora do setor")]
+    assert list(channels.apply_candidates(validation, current)["key"]) == ["@a"]
+
+
+def test_summarize_without_approved_channels():
+    assert channels.summarize(pd.DataFrame()).empty
+    rejected = pd.DataFrame([validation_row("a", status="poucos_shorts")])
+    assert channels.summarize(rejected).empty
+
+
+def test_export_command_writes_yaml(tmp_path, monkeypatch):
+    validation_path = tmp_path / "validation.csv"
+    pd.DataFrame([validation_row("a"), validation_row("b")]).to_csv(
+        validation_path, index=False
+    )
+    candidates_path = tmp_path / "candidates.yaml"
+    candidates_path.write_text(
+        "candidates:\n"
+        "  - {handle: a, name: A, sector: moda, region: br, kind: marca}\n"
+        "  - {handle: b, name: B, sector: moda, region: br, kind: marca,"
+        " holdout: true}\n"
+    )
+    channels_path = tmp_path / "channels.yaml"
+    monkeypatch.setattr(channels, "VALIDATION_PATH", validation_path)
+    monkeypatch.setattr(channels, "CANDIDATES_PATH", candidates_path)
+    monkeypatch.setattr(channels, "CHANNELS_PATH", channels_path)
+
+    channels.main(["export"])
+
+    text = channels_path.read_text()
+    assert text.startswith("# Gerado por")
+    content = yaml.safe_load(text)
+    assert [c["channel_id"] for c in content["channels"]] == ["UCa"]
+    assert [c["channel_id"] for c in content["holdout_channels"]] == ["UCb"]
+
+
+def test_client_refresh_mode_and_atomic_cache(tmp_path):
+    client, service = make_client(
+        tmp_path, channels=lambda p: {"items": [channel_item()]}
+    )
+    client.list("channels", part="snippet", forHandle="@canal")
+
+    fresh = YouTubeClient(service=service, cache_dir=tmp_path, refresh=True)
+    fresh.list("channels", part="snippet", forHandle="@canal")
+    assert len(service.calls) == 2
+    assert not list(tmp_path.rglob("*.tmp"))

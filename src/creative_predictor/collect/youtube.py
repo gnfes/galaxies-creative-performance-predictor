@@ -1,12 +1,14 @@
 """Cliente fino da YouTube Data API v3 com cache em disco das respostas brutas.
 
 Cada chamada `list` é salva como JSON em `data/raw/youtube/<recurso>/`, com a
-data da consulta. Rodar de novo reaproveita o cache e não gasta cota; para
-forçar uma consulta nova, use `refresh=True`.
+data da consulta. Rodar de novo reaproveita o cache e não gasta cota. O cache
+não expira: para consultar a API de novo (estatísticas atualizadas, páginas
+coerentes entre si), crie o cliente com `refresh=True`.
 """
 
 import hashlib
 import json
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -23,9 +25,12 @@ QUOTA_COST = {"channels": 1, "playlistItems": 1, "videos": 1, "search": 100}
 
 
 class YouTubeClient:
-    def __init__(self, service: Any = None, cache_dir: Path = CACHE_DIR):
+    def __init__(
+        self, service: Any = None, cache_dir: Path = CACHE_DIR, refresh: bool = False
+    ):
         self._service = service
         self.cache_dir = cache_dir
+        self.refresh = refresh
         self.quota_used = 0
 
     @property
@@ -42,7 +47,7 @@ class YouTubeClient:
     def list(self, resource: str, *, refresh: bool = False, **params: Any) -> dict:
         """Chama `<resource>.list(**params)`, usando o cache quando houver."""
         path = self._cache_path(resource, params)
-        if path.is_file() and not refresh:
+        if path.is_file() and not (refresh or self.refresh):
             return json.loads(path.read_text())["response"]
 
         response = getattr(self.service, resource)().list(**params).execute()
@@ -55,7 +60,11 @@ class YouTubeClient:
             "fetched_at": datetime.now(UTC).isoformat(timespec="seconds"),
             "response": response,
         }
-        path.write_text(json.dumps(record, ensure_ascii=False, indent=1))
+        # Grava num arquivo temporário e troca de uma vez: uma interrupção no
+        # meio da escrita não deixa JSON truncado no cache.
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(record, ensure_ascii=False, indent=1))
+        os.replace(tmp, path)
         return response
 
     def _cache_path(self, resource: str, params: dict) -> Path:

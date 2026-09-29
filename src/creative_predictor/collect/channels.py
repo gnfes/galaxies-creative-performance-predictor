@@ -12,8 +12,8 @@ Fluxo:
    demonstração.
 
 Uso:
-    uv run python -m creative_predictor.collect.channels validate
-    uv run python -m creative_predictor.collect.channels search "loreal paris brasil"
+    uv run python -m creative_predictor.collect.channels validate [--refresh]
+    uv run python -m creative_predictor.collect.channels search "maquiagem" --br
     uv run python -m creative_predictor.collect.channels export
 """
 
@@ -125,8 +125,8 @@ class Validation(BaseModel):
     median_likes: float | None = None
 
 
-def load_candidates(path: Path = CANDIDATES_PATH) -> list[Candidate]:
-    data = yaml.safe_load(path.read_text()) or {}
+def load_candidates(path: Path | None = None) -> list[Candidate]:
+    data = yaml.safe_load((path or CANDIDATES_PATH).read_text()) or {}
     return [Candidate(**item) for item in data.get("candidates", [])]
 
 
@@ -146,11 +146,15 @@ def _published_date(item: dict) -> date | None:
 
 @dataclass
 class ShortsScan:
+    limit: int = MAX_SHORTS_PER_CHANNEL
     total: int = 0
-    until_cutoff: int = 0
     latest: date | None = None
     # (data, video_id) dos Shorts publicados até o corte
     before_cutoff: list[tuple[date, str]] = field(default_factory=list)
+
+    @property
+    def until_cutoff(self) -> int:
+        return min(len(self.before_cutoff), self.limit)
 
     def recent_ids(self, n: int = ENGAGEMENT_SAMPLE) -> list[str]:
         return [video_id for _, video_id in sorted(self.before_cutoff)[::-1][:n]]
@@ -167,7 +171,7 @@ def count_shorts(
     Devolve None se o canal não tem playlist de Shorts.
     """
     playlist_id = shorts_playlist_id(channel_id)
-    scan = ShortsScan()
+    scan = ShortsScan(limit=limit)
     page_token = None
     while True:
         params = {"part": "contentDetails", "playlistId": playlist_id, "maxResults": 50}
@@ -176,7 +180,9 @@ def count_shorts(
         try:
             response = client.list("playlistItems", **params)
         except HttpError as error:
-            if is_not_found(error):
+            # 404 na primeira página = canal sem playlist de Shorts. Numa página
+            # seguinte é falha da paginação, e o erro não pode virar "sem Shorts".
+            if is_not_found(error) and page_token is None:
                 return None
             raise
         scan.total = response.get("pageInfo", {}).get("totalResults", scan.total)
@@ -189,7 +195,6 @@ def count_shorts(
                 scan.before_cutoff.append(
                     (published, item["contentDetails"]["videoId"])
                 )
-        scan.until_cutoff = min(len(scan.before_cutoff), limit)
         page_token = response.get("nextPageToken")
         if scan.until_cutoff >= limit or not page_token:
             return scan
@@ -309,6 +314,20 @@ def _channel_entries(rows: pd.DataFrame) -> list[dict]:
     ]
 
 
+def apply_candidates(
+    validation: pd.DataFrame, candidates: list[Candidate]
+) -> pd.DataFrame:
+    """Alinha a validação salva com a lista de candidatos atual.
+
+    Candidatos retirados da lista ou marcados com `exclude` saem, e `holdout`
+    vem da lista, para uma revisão feita depois do `validate` valer no export.
+    """
+    current = {c.key: c for c in candidates if not c.exclude}
+    aligned = validation[validation["key"].isin(current)].copy()
+    aligned["holdout"] = [current[key].holdout for key in aligned["key"]]
+    return aligned
+
+
 def export_channels(validation: pd.DataFrame) -> dict:
     """Conteúdo de `configs/channels.yaml` a partir da validação.
 
@@ -334,7 +353,11 @@ def export_channels(validation: pd.DataFrame) -> dict:
 
 
 def summarize(validation: pd.DataFrame) -> pd.DataFrame:
+    if validation.empty:
+        return pd.DataFrame()
     ok = validation[(validation["status"] == Status.OK) & ~validation["holdout"]]
+    if ok.empty:
+        return pd.DataFrame()
     return ok.pivot_table(
         index="sector",
         columns="region",
@@ -347,7 +370,7 @@ def summarize(validation: pd.DataFrame) -> pd.DataFrame:
 
 
 def _cmd_validate(args: argparse.Namespace) -> None:
-    client = YouTubeClient()
+    client = YouTubeClient(refresh=args.refresh)
     validation = validate(load_candidates(), client, args.cutoff)
     VALIDATION_PATH.parent.mkdir(parents=True, exist_ok=True)
     validation.to_csv(VALIDATION_PATH, index=False)
@@ -377,11 +400,14 @@ def _cmd_validate(args: argparse.Namespace) -> None:
 
 
 def search_channels(
-    client: YouTubeClient, query: str, region: Region | None = None
+    client: YouTubeClient, query: str, br: bool = False
 ) -> pd.DataFrame:
-    """Busca canais por termo (100 unidades) e traz handle, país e inscritos."""
+    """Busca canais por termo (100 unidades) e traz handle, país e inscritos.
+
+    Com `br=True`, prioriza canais do Brasil em português.
+    """
     params = {"part": "snippet", "q": query, "type": "channel", "maxResults": 25}
-    if region == Region.BR:
+    if br:
         params |= {"regionCode": "BR", "relevanceLanguage": "pt"}
     found = client.list("search", **params).get("items", [])
     ids = [item["snippet"]["channelId"] for item in found]
@@ -399,21 +425,21 @@ def search_channels(
         }
         for ch in channels.get("items", [])
     ]
+    if not rows:  # canais removidos entre a busca e o channels.list
+        return pd.DataFrame()
     return pd.DataFrame(rows).sort_values("subscribers", ascending=False)
 
 
 def _cmd_search(args: argparse.Namespace) -> None:
     client = YouTubeClient()
-    found = search_channels(client, args.query, args.region)
+    found = search_channels(client, args.query, args.br)
     with pd.option_context("display.max_rows", None, "display.width", 200):
         print(found.to_string(index=False))
     print(f"\nCota gasta: {client.quota_used} unidades.")
 
 
 def _cmd_export(args: argparse.Namespace) -> None:
-    validation = pd.read_csv(VALIDATION_PATH)
-    excluded = {c.key for c in load_candidates() if c.exclude}
-    validation = validation[~validation["key"].isin(excluded)]
+    validation = apply_candidates(pd.read_csv(VALIDATION_PATH), load_candidates())
     content = export_channels(validation)
     CHANNELS_PATH.write_text(
         _EXPORT_HEADER + yaml.safe_dump(content, allow_unicode=True, sort_keys=False)
@@ -444,13 +470,18 @@ def main(argv: list[str] | None = None) -> None:
     validate_cmd.add_argument(
         "--cutoff", type=date.fromisoformat, default=DEFAULT_CUTOFF
     )
+    validate_cmd.add_argument(
+        "--refresh", action="store_true", help="ignora o cache e consulta a API"
+    )
     validate_cmd.set_defaults(func=_cmd_validate)
 
     sub.add_parser("export").set_defaults(func=_cmd_export)
 
     search = sub.add_parser("search")
     search.add_argument("query")
-    search.add_argument("--region", type=Region, default=None)
+    search.add_argument(
+        "--br", action="store_true", help="prioriza canais do Brasil em português"
+    )
     search.set_defaults(func=_cmd_search)
 
     args = parser.parse_args(argv)
