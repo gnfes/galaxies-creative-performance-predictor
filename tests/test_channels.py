@@ -11,6 +11,7 @@ from creative_predictor.collect import channels
 from creative_predictor.collect.channels import Candidate, Status
 from creative_predictor.collect.youtube import YouTubeClient
 
+START = date(2025, 1, 1)
 CUTOFF = date(2026, 8, 28)
 CHANNEL_ID = "UCabc123"
 
@@ -133,17 +134,19 @@ def test_shorts_playlist_id():
         channels.shorts_playlist_id("UUabc123")
 
 
-def test_count_shorts_respects_cutoff_and_skips_private(tmp_path):
-    dates = ["2026-09-20", "2026-08-29", "2026-08-28", None, "2026-01-01"]
+def test_count_shorts_keeps_only_the_window(tmp_path):
+    dates = ["2026-09-20", "2026-08-28", None, "2025-01-01", "2024-12-31", "2024-06-01"]
     client, _ = make_client(tmp_path, playlistItems=playlist_pages(dates))
-    scan = channels.count_shorts(client, CHANNEL_ID, CUTOFF)
-    assert (scan.total, scan.until_cutoff, scan.latest) == (5, 2, date(2026, 9, 20))
-    assert scan.recent_ids() == ["v0-2", "v0-4"]
+    scan = channels.count_shorts(client, CHANNEL_ID, START, CUTOFF)
+    assert scan.total == 6
+    assert scan.latest == date(2026, 9, 20)
+    assert [d for d, _ in scan.in_window] == [date(2026, 8, 28), date(2025, 1, 1)]
+    assert scan.recent_ids() == ["v0-1", "v0-3"]
 
 
 def test_recent_ids_are_most_recent_first():
     scan = channels.ShortsScan(
-        before_cutoff=[
+        in_window=[
             (date(2026, 1, 1), "a"),
             (date(2026, 3, 1), "c"),
             (date(2026, 2, 1), "b"),
@@ -152,29 +155,45 @@ def test_recent_ids_are_most_recent_first():
     assert scan.recent_ids(2) == ["c", "b"]
 
 
-def test_count_shorts_stops_paging_at_limit(tmp_path):
-    dates = ["2026-01-01"] * 200
+def test_count_shorts_stops_after_passing_window_start(tmp_path):
+    # 60 Shorts na janela e 100 anteriores: a 2ª página já passa do início,
+    # então a 3ª e a 4ª não são pedidas.
+    dates = ["2026-01-01"] * 60 + ["2024-01-01"] * 100
     client, service = make_client(tmp_path, playlistItems=playlist_pages(dates))
-    scan = channels.count_shorts(client, CHANNEL_ID, CUTOFF, limit=60)
-    assert scan.until_cutoff == 60
-    assert len(service.calls) == 2  # 2 páginas de 50 bastam para chegar a 60
+    scan = channels.count_shorts(client, CHANNEL_ID, START, CUTOFF)
+    assert len(scan.in_window) == 60
+    assert len(service.calls) == 2
 
 
 def test_count_shorts_without_shorts_playlist(tmp_path):
     client, _ = make_client(tmp_path, playlistItems=lambda p: not_found())
-    assert channels.count_shorts(client, CHANNEL_ID, CUTOFF) is None
+    assert channels.count_shorts(client, CHANNEL_ID, START, CUTOFF) is None
 
 
-def test_median_engagement_ignores_hidden_likes(tmp_path):
+def test_measure_engagement_ignores_hidden_likes(tmp_path):
     client, _ = make_client(tmp_path, videos=videos_stats)
-    views, likes = channels.median_engagement(client, ["v0-0", "v0-1", "v0-2"])
-    assert views == 200
-    assert likes == 2.5  # curtidas de v0-0 ocultas: mediana de [2, 3]
+    engagement = channels.measure_engagement(client, ["v0-0", "v0-1", "v0-2"])
+    assert engagement.median_views == 200
+    assert engagement.median_likes == 2.5  # curtidas de v0-0 ocultas: [2, 3]
+    assert engagement.paid_share == 0
 
 
-def test_median_engagement_without_videos(tmp_path):
+def test_measure_engagement_paid_share(tmp_path):
+    def handler(params):
+        stats = [
+            {"viewCount": "100000", "likeCount": "100"},  # 0,1%: impulsionado
+            {"viewCount": "1000", "likeCount": "50"},
+            {"viewCount": "0", "likeCount": "0"},  # sem views: fica de fora
+        ]
+        return {"items": [{"id": str(i), "statistics": s} for i, s in enumerate(stats)]}
+
+    client, _ = make_client(tmp_path, videos=handler)
+    assert channels.measure_engagement(client, ["0", "1", "2"]).paid_share == 0.5
+
+
+def test_measure_engagement_without_videos(tmp_path):
     client, service = make_client(tmp_path)
-    assert channels.median_engagement(client, []) == (None, None)
+    assert channels.measure_engagement(client, []) == channels.Engagement()
     assert service.calls == []
 
 
@@ -186,14 +205,14 @@ def test_count_shorts_404_on_later_page_is_an_error(tmp_path):
 
     client, _ = make_client(tmp_path, playlistItems=handler)
     with pytest.raises(HttpError):
-        channels.count_shorts(client, CHANNEL_ID, CUTOFF)
+        channels.count_shorts(client, CHANNEL_ID, START, CUTOFF)
 
 
 def test_count_shorts_propagates_other_errors(tmp_path):
     error = HttpError(httplib2.Response({"status": 403}), b"quotaExceeded")
     client, _ = make_client(tmp_path, playlistItems=lambda p: error)
     with pytest.raises(HttpError):
-        channels.count_shorts(client, CHANNEL_ID, CUTOFF)
+        channels.count_shorts(client, CHANNEL_ID, START, CUTOFF)
 
 
 @pytest.mark.parametrize(
@@ -206,29 +225,31 @@ def test_validate_candidate_applies_min_shorts(tmp_path, n_shorts, status):
         playlistItems=playlist_pages(["2026-08-01"] * n_shorts),
         videos=videos_stats,
     )
-    result = channels.validate_candidate(client, candidate(), CUTOFF)
+    result = channels.validate_candidate(client, candidate(), START, CUTOFF)
     assert result.status == status
     assert result.channel_id == CHANNEL_ID
     assert result.subscribers == 1200
-    assert result.active is True
+    assert result.shorts_in_window == n_shorts
     assert result.median_views == 100 * (n_shorts + 1) / 2
+    assert (result.window_start, result.cutoff) == (START, CUTOFF)
 
 
-def test_validate_candidate_flags_inactive_channel(tmp_path):
+def test_validate_candidate_counts_only_the_window(tmp_path):
+    # 300 Shorts no total, mas só 20 na janela: não passa no mínimo.
     client, _ = make_client(
         tmp_path,
         channels=lambda p: {"items": [channel_item()]},
-        playlistItems=playlist_pages(["2025-12-01"] * 60),
+        playlistItems=playlist_pages(["2026-05-01"] * 20 + ["2023-01-01"] * 280),
         videos=videos_stats,
     )
-    result = channels.validate_candidate(client, candidate(), CUTOFF)
-    assert result.status == Status.OK
-    assert result.active is False
+    result = channels.validate_candidate(client, candidate(), START, CUTOFF)
+    assert result.status == Status.FEW_SHORTS
+    assert (result.shorts_total, result.shorts_in_window) == (300, 20)
 
 
 def test_validate_candidate_not_found(tmp_path):
     client, _ = make_client(tmp_path, channels=lambda p: {"items": []})
-    result = channels.validate_candidate(client, candidate(), CUTOFF)
+    result = channels.validate_candidate(client, candidate(), START, CUTOFF)
     assert result.status == Status.NOT_FOUND
 
 
@@ -239,7 +260,7 @@ def test_validate_candidate_by_channel_id(tmp_path):
         playlistItems=lambda p: not_found(),
     )
     result = channels.validate_candidate(
-        client, candidate(handle=None, channel_id=CHANNEL_ID), CUTOFF
+        client, candidate(handle=None, channel_id=CHANNEL_ID), START, CUTOFF
     )
     assert result.status == Status.NO_SHORTS
     assert service.calls[0] == (
@@ -253,6 +274,7 @@ def test_validate_skips_excluded_candidates(tmp_path):
     result = channels.validate(
         [candidate(), candidate(handle="outro", exclude="fora do setor")],
         client,
+        START,
         CUTOFF,
     )
     assert list(result["key"]) == ["@canal"]
@@ -283,8 +305,10 @@ def validation_row(key, status="ok", holdout=False, likes=100.0, views=5000.0, *
         "region": "br",
         "kind": "marca",
         "holdout": holdout,
+        "window_start": "2024-10-15",
         "cutoff": "2026-08-28",
         "status": status,
+        "shorts_in_window": 80 if status == "ok" else 10,
         "median_views": views,
         "median_likes": likes,
     } | kw
@@ -297,11 +321,16 @@ def test_export_channels_splits_training_and_holdout():
             validation_row("a", sector="beleza"),
             validation_row("c", status="poucos_shorts"),
             validation_row("d", status="poucos_shorts", holdout=True),
-            validation_row("e", status="sem_shorts", holdout=True),
+            validation_row(
+                "e", status="sem_shorts", holdout=True, shorts_in_window=None
+            ),
+            validation_row(
+                "f", status="poucos_shorts", holdout=True, shorts_in_window=0
+            ),
         ]
     )
     content = channels.export_channels(validation)
-    assert content["cutoff"] == "2026-08-28"
+    assert (content["window_start"], content["cutoff"]) == ("2024-10-15", "2026-08-28")
     assert [c["channel_id"] for c in content["channels"]] == ["UCa", "UCb"]
     assert [c["channel_id"] for c in content["holdout_channels"]] == ["UCd"]
     assert content["channels"][0] == {
@@ -315,11 +344,11 @@ def test_export_channels_splits_training_and_holdout():
     }
 
 
-def test_export_channels_rejects_mixed_cutoffs():
+def test_export_channels_rejects_mixed_windows():
     validation = pd.DataFrame(
-        [validation_row("a"), validation_row("b", cutoff="2026-08-31")]
+        [validation_row("a"), validation_row("b", window_start="2025-01-01")]
     )
-    with pytest.raises(ValueError, match="data de corte"):
+    with pytest.raises(ValueError, match="mais de uma janela"):
         channels.export_channels(validation)
 
 
@@ -439,3 +468,47 @@ def test_client_refresh_mode_and_atomic_cache(tmp_path):
     fresh.list("channels", part="snippet", forHandle="@canal")
     assert len(service.calls) == 2
     assert not list(tmp_path.rglob("*.tmp"))
+
+
+def test_validate_candidate_rejects_paid_media(tmp_path):
+    def paid_stats(params):
+        ids = params["id"].split(",")
+        # 40% dos Shorts com 0,1% de curtidas por view
+        return {
+            "items": [
+                {
+                    "id": v,
+                    "statistics": {
+                        "viewCount": "100000",
+                        "likeCount": "100" if n % 5 < 2 else "3000",
+                    },
+                }
+                for n, v in enumerate(ids)
+            ]
+        }
+
+    client, _ = make_client(
+        tmp_path,
+        channels=lambda p: {"items": [channel_item()]},
+        playlistItems=playlist_pages(["2026-08-01"] * 60),
+        videos=paid_stats,
+    )
+    result = channels.validate_candidate(client, candidate(), START, CUTOFF)
+    assert result.status == Status.PAID_MEDIA
+    assert result.paid_share == 0.4
+
+
+def test_validate_rejects_inverted_window(tmp_path):
+    client, _ = make_client(tmp_path)
+    with pytest.raises(ValueError, match="janela invertida"):
+        channels.validate([candidate()], client, CUTOFF, START)
+
+
+def test_export_command_asks_to_revalidate_old_csv(tmp_path, monkeypatch):
+    old = tmp_path / "validation.csv"
+    pd.DataFrame([{"key": "@a", "status": "ok", "cutoff": "2026-08-28"}]).to_csv(
+        old, index=False
+    )
+    monkeypatch.setattr(channels, "VALIDATION_PATH", old)
+    with pytest.raises(SystemExit, match="Rode `validate` de novo"):
+        channels.main(["export"])

@@ -2,17 +2,28 @@
 # configs/channel_candidates.yaml; não editar à mão.
 #
 # channels: canais da base (treino e teste). holdout_channels: canais fora do
-# treino, usados na demonstração com métrica real conhecida.
+# treino, usados na demonstração (métrica real conhecida) e para avaliar o
+# modelo em canais com poucos Shorts.
+# window_start/cutoff: janela de publicação dos Shorts coletados.
+# media_shorts_per_channel: Shorts por canal que seguem para a extração
+# multimodal, distribuídos ao longo da janela.
 # low_engagement: mediana de curtidas < 10 (ou de views < 1.000, se as
-# curtidas estão ocultas) nos 50 Shorts mais recentes antes do corte.
+# curtidas estão ocultas) nos 50 Shorts mais recentes da janela.
+window_start: '2024-10-15'
 cutoff: '2026-08-28'
 min_shorts: 50
-max_shorts_per_channel: 300
 media_shorts_per_channel: 120
 channels:
 - channel_id: UCGBIIPnw0AYM3BFsmTsjeAw
   handle: '@acelerados'
   name: Acelerados
+  sector: automotivo
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCOQYjGY9O-TzuPpkr12y0WA
+  handle: '@aoraboni'
+  name: AoRaboni
   sector: automotivo
   region: br
   kind: criador
@@ -27,6 +38,13 @@ channels:
 - channel_id: UCWYuQ9_2boHBxm59n6lSzDA
   handle: '@autoesporte'
   name: Autoesporte
+  sector: automotivo
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UC-qF9N7a3k8v0F9XkSqasKw
+  handle: '@autoranking'
+  name: Autoranking
   sector: automotivo
   region: br
   kind: criador
@@ -52,9 +70,16 @@ channels:
   region: br
   kind: criador
   low_engagement: false
-- channel_id: UCCykAaNbtxUpGwvkSYWWSKg
-  handle: '@garagemdobellotetv'
-  name: Garagem do Bellote
+- channel_id: UCV7ZpRaSA8EsuCNT3ouygWQ
+  handle: '@carrosdoxenao'
+  name: Carros do Xenão
+  sector: automotivo
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCeSu6-j3LxdlBLZZfmEpcpg
+  handle: '@meucarrolifestyle'
+  name: Meu Carro LifeStyle
   sector: automotivo
   region: br
   kind: criador
@@ -69,6 +94,13 @@ channels:
 - channel_id: UCIvQJmPaDR2lMDDNhb4--bA
   handle: '@quatrorodas'
   name: Quatro Rodas
+  sector: automotivo
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCJazSm4SMrAajR1OsdXaa0g
+  handle: '@topdrivebrasil'
+  name: Top Drive
   sector: automotivo
   region: br
   kind: criador
@@ -94,30 +126,16 @@ channels:
   region: br
   kind: criador
   low_engagement: false
-- channel_id: UCMDN2p8PMyBoMVDpOQ5r9Ew
-  handle: '@bydbrasil'
-  name: BYD Brasil
+- channel_id: UCV1aAz5q_yh3jMOnLa-lk7Q
+  handle: '@fordbrasil'
+  name: Ford Brasil
   sector: automotivo
   region: br
   kind: marca
-  low_engagement: false
-- channel_id: UCRojKYdkvZcRQX1Vu7wEU5g
-  handle: '@chevroletbrasil'
-  name: Chevrolet Brasil
-  sector: automotivo
-  region: br
-  kind: marca
-  low_engagement: false
+  low_engagement: true
 - channel_id: UCnBYf03jmMPiABvbSYbxMcA
   handle: '@hyundaibr'
   name: Hyundai Motor Brasil
-  sector: automotivo
-  region: br
-  kind: marca
-  low_engagement: false
-- channel_id: UChpihrq2RRLyzgLtpcoMVbw
-  handle: '@nissanbrasil'
-  name: Nissan Brasil
   sector: automotivo
   region: br
   kind: marca
@@ -199,6 +217,13 @@ channels:
   region: global
   kind: marca
   low_engagement: false
+- channel_id: UCdbtRVtKbsJGT8mygiS7v9A
+  handle: '@allanamenezzes'
+  name: Allana Menezes
+  sector: beleza
+  region: br
+  kind: criador
+  low_engagement: false
 - channel_id: UC-H4qBmQcuau4l36UDBitjA
   handle: '@belezacomdu'
   name: Beleza com Du
@@ -213,9 +238,23 @@ channels:
   region: br
   kind: criador
   low_engagement: false
-- channel_id: UCoTM-vvs2hnv2mCvzNJ5uXA
-  handle: '@francinyehlke'
-  name: Franciny Ehlke
+- channel_id: UCKq_oJatXdyIWTqlkR-ra5g
+  handle: '@carinaaravjo'
+  name: Carina Araújo
+  sector: beleza
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UC543W3R-fDk2WjW2C-uZu8w
+  handle: '@carolkyoko'
+  name: Carol Kyoko
+  sector: beleza
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCsBBRzT_6kRfIiqb3qVVjrw
+  handle: '@byesterlima'
+  name: Ester Lima
   sector: beleza
   region: br
   kind: criador
@@ -262,9 +301,9 @@ channels:
   region: br
   kind: criador
   low_engagement: false
-- channel_id: UCKK5wfsALXtH-C5tDxg_MXw
-  handle: '@raphabartowski'
-  name: Rapha Bartowski
+- channel_id: UCo_laOBh_Z_eLwF0DvOkEJQ
+  handle: '@raissagalvao_'
+  name: Raíssa Galvão
   sector: beleza
   region: br
   kind: criador
@@ -297,9 +336,23 @@ channels:
   region: br
   kind: marca
   low_engagement: false
+- channel_id: UCNWifvx-E-Y7Nykr5feg-Vw
+  handle: '@dovebrasil'
+  name: Dove Brasil
+  sector: beleza
+  region: br
+  kind: marca
+  low_engagement: true
 - channel_id: UC1Gb2KWaul8Y4QqP0iEC5pA
   handle: '@eudora'
   name: Eudora
+  sector: beleza
+  region: br
+  kind: marca
+  low_engagement: false
+- channel_id: UC2vnzOFyZkhgrcYhjHj9wQA
+  handle: '@jequiti'
+  name: Jequiti
   sector: beleza
   region: br
   kind: marca
@@ -318,20 +371,6 @@ channels:
   region: br
   kind: marca
   low_engagement: false
-- channel_id: UCFoC2StbX364fRm6wBBvwmA
-  handle: '@principiaskincare'
-  name: Principia
-  sector: beleza
-  region: br
-  kind: marca
-  low_engagement: true
-- channel_id: UC2ewdOD19Z_81Fo_j2AY3aQ
-  handle: '@sallve'
-  name: Sallve
-  sector: beleza
-  region: br
-  kind: marca
-  low_engagement: false
 - channel_id: UCnjK9YWSbd0AAjHhM3vAu7A
   handle: '@salonlinebrasil'
   name: Salon Line
@@ -342,20 +381,6 @@ channels:
 - channel_id: UCzJIliq68IHSn-Kwgjeg2AQ
   handle: '@jackieaina'
   name: Jackie Aina
-  sector: beleza
-  region: global
-  kind: criador
-  low_engagement: false
-- channel_id: UCucot-Zp428OwkyRm2I7v2Q
-  handle: '@jamescharles'
-  name: James Charles
-  sector: beleza
-  region: global
-  kind: criador
-  low_engagement: false
-- channel_id: UCzTKskwIc_-a0cGvCXA848Q
-  handle: '@nikkietutorials'
-  name: NikkieTutorials
   sector: beleza
   region: global
   kind: criador
@@ -437,23 +462,16 @@ channels:
   region: global
   kind: marca
   low_engagement: false
-- channel_id: UCbE19oP8rChKU33hi-AmYvQ
-  handle: '@alinibosko'
-  name: Alini Bosko
-  sector: moda
-  region: br
-  kind: criador
-  low_engagement: false
-- channel_id: UCcwlzNsTzuPB5rncCizx53g
-  handle: '@dicaseciafashion'
-  name: Dicas & Cia Fashion
-  sector: moda
-  region: br
-  kind: criador
-  low_engagement: false
 - channel_id: UCVQBcsJ18NBzUqGVML7ulxw
   handle: '@faculdadedeestilo'
   name: Faculdade de Estilo
+  sector: moda
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCbFFRRXTgexHTkL_fkpimxg
+  handle: '@franbarretooficial'
+  name: Fran Barreto
   sector: moda
   region: br
   kind: criador
@@ -472,6 +490,13 @@ channels:
   region: br
   kind: criador
   low_engagement: false
+- channel_id: UC4W_0FBIcx_ngnQg6f3etAg
+  handle: '@leticiaborgess'
+  name: Leticia Borges
+  sector: moda
+  region: br
+  kind: criador
+  low_engagement: false
 - channel_id: UCiNK_NdXwJXVD_RjDgCAlNQ
   handle: '@machomoda'
   name: Macho Moda
@@ -486,6 +511,13 @@ channels:
   region: br
   kind: criador
   low_engagement: false
+- channel_id: UCbLn-2C6aEVEF_JAPuRZnzg
+  handle: '@dicasdamioliveira'
+  name: Michele Oliveira
+  sector: moda
+  region: br
+  kind: criador
+  low_engagement: false
 - channel_id: UCWzL6Qt4YnaH6TmT2C6nDDQ
   handle: '@modamasculina'
   name: Moda Masculina
@@ -493,9 +525,16 @@ channels:
   region: br
   kind: criador
   low_engagement: false
-- channel_id: UCFFYKuuCiB960rYZNPuAXDA
-  handle: '@marciafelini'
-  name: Márcia Felini
+- channel_id: UC0Do0eWjP7k0rmkoJG6K4zA
+  handle: '@canaldapatysantos'
+  name: Paty Santos
+  sector: moda
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCXglPFo0dXfqoZ55mh5ti-w
+  handle: '@pamelabaltieri'
+  name: Pâmela Baltieri
   sector: moda
   region: br
   kind: criador
@@ -507,6 +546,27 @@ channels:
   region: br
   kind: criador
   low_engagement: false
+- channel_id: UCTPemzYZSYTnEhjx2crJbYA
+  handle: '@renata.boscarini'
+  name: Rê Boscarini
+  sector: moda
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UC8Euzy--xzTc378ADzFRebA
+  handle: '@sneakersbrvideos'
+  name: SneakersBR
+  sector: moda
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCJkYomffGq5-CjEV327u7yw
+  handle: '@thammyfreitas'
+  name: Thammy Freitas
+  sector: moda
+  region: br
+  kind: criador
+  low_engagement: false
 - channel_id: UCQg7NEquBqs3BgnfPvzi7iQ
   handle: '@thaismelo.souzatm'
   name: Thaís Melo
@@ -514,37 +574,23 @@ channels:
   region: br
   kind: criador
   low_engagement: false
-- channel_id: UCu6Sd8YmtEtQiBLQr4VZdKA
-  handle: '@thimartins'
-  name: Thi Martins
+- channel_id: UCK0IoojtpbwD8-W7Psq0zdQ
+  handle: '@ursulaangel7516'
+  name: Ursula Angel
   sector: moda
   region: br
   kind: criador
   low_engagement: false
-- channel_id: UCaVpzaxGCCrNgZt5l4lh5OA
-  handle: '@teniscerto'
-  name: Tênis Certo
-  sector: moda
-  region: br
-  kind: criador
-  low_engagement: false
-- channel_id: UCAokYKP-GJjhusjpEfQtfmw
-  handle: '@dafiti'
-  name: Dafiti
+- channel_id: UC7AqXU_kHCYqXzYhG1rpkkA
+  handle: '@adriana2717'
+  name: Adriana Oliveira (loja)
   sector: moda
   region: br
   kind: marca
-  low_engagement: true
+  low_engagement: false
 - channel_id: UCrv2g4QkbJw0L79xANq_VNg
   handle: '@havaianas'
   name: Havaianas
-  sector: moda
-  region: br
-  kind: marca
-  low_engagement: false
-- channel_id: UCkMSfeELcO0A_ULT8SWZsmQ
-  handle: '@heringoficial'
-  name: Hering
   sector: moda
   region: br
   kind: marca
@@ -556,20 +602,20 @@ channels:
   region: br
   kind: marca
   low_engagement: true
-- channel_id: UCPH5o1YO07fuZibgrZyqKYQ
-  handle: '@usereserva'
-  name: Reserva
+- channel_id: UCmR9GomJR7Cs-PTipnDdseg
+  handle: '@lojastorra'
+  name: Lojas Torra
   sector: moda
   region: br
   kind: marca
-  low_engagement: false
-- channel_id: UC68lvr_ENRERr5dAgBvYP7w
-  handle: '@riachuelo'
-  name: Riachuelo
+  low_engagement: true
+- channel_id: UCbNWIQcHEj6Y1g467UyPpBQ
+  handle: '@pernambucanas'
+  name: Pernambucanas
   sector: moda
   region: br
   kind: marca
-  low_engagement: false
+  low_engagement: true
 - channel_id: UCvTdxWQ_Wzz9Ea_g_axS_ZA
   handle: '@brittanyxavier'
   name: Brittany Xavier
@@ -619,13 +665,6 @@ channels:
   region: global
   kind: marca
   low_engagement: false
-- channel_id: UCvm-1tfv4nk4dz_EHeRGbXw
-  handle: '@uniqlo'
-  name: UNIQLO
-  sector: moda
-  region: global
-  kind: marca
-  low_engagement: false
 - channel_id: UCa8RD6FJLllG4nBskvhOGZw
   handle: '@zara'
   name: Zara
@@ -641,9 +680,30 @@ channels:
   kind: marca
   low_engagement: false
 holdout_channels:
+- channel_id: UCCykAaNbtxUpGwvkSYWWSKg
+  handle: '@garagemdobellotetv'
+  name: Garagem do Bellote
+  sector: automotivo
+  region: br
+  kind: criador
+  low_engagement: false
+- channel_id: UCRojKYdkvZcRQX1Vu7wEU5g
+  handle: '@chevroletbrasil'
+  name: Chevrolet Brasil
+  sector: automotivo
+  region: br
+  kind: marca
+  low_engagement: false
 - channel_id: UCZuERLdGT7WEPKgEPTmbSHg
   handle: '@jeepdobrasil'
   name: Jeep Brasil
+  sector: automotivo
+  region: br
+  kind: marca
+  low_engagement: false
+- channel_id: UChpihrq2RRLyzgLtpcoMVbw
+  handle: '@nissanbrasil'
+  name: Nissan Brasil
   sector: automotivo
   region: br
   kind: marca
@@ -661,7 +721,7 @@ holdout_channels:
   sector: beleza
   region: br
   kind: marca
-  low_engagement: false
+  low_engagement: true
 - channel_id: UCffgKIBxrgHfemrk4LVZUpw
   handle: '@quemdisseberenice'
   name: Quem Disse Berenice
@@ -669,12 +729,40 @@ holdout_channels:
   region: br
   kind: marca
   low_engagement: false
+- channel_id: UCbE19oP8rChKU33hi-AmYvQ
+  handle: '@alinibosko'
+  name: Alini Bosko
+  sector: moda
+  region: br
+  kind: criador
+  low_engagement: false
 - channel_id: UCjyoe_EtZfjKDO8-6JIYohQ
   handle: '@camilagaio'
   name: Camila Gaio
   sector: moda
   region: br
   kind: criador
+  low_engagement: false
+- channel_id: UCkMSfeELcO0A_ULT8SWZsmQ
+  handle: '@heringoficial'
+  name: Hering
+  sector: moda
+  region: br
+  kind: marca
+  low_engagement: true
+- channel_id: UCPH5o1YO07fuZibgrZyqKYQ
+  handle: '@usereserva'
+  name: Reserva
+  sector: moda
+  region: br
+  kind: marca
+  low_engagement: false
+- channel_id: UC68lvr_ENRERr5dAgBvYP7w
+  handle: '@riachuelo'
+  name: Riachuelo
+  sector: moda
+  region: br
+  kind: marca
   low_engagement: false
 - channel_id: UCoc8tpGCY1wrp8pV7mI0scA
   handle: '@hennesandmauritz'

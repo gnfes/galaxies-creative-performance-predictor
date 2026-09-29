@@ -4,12 +4,14 @@ Fluxo:
 1. `configs/channel_candidates.yaml` lista os candidatos (handle ou channel_id,
    setor, região, tipo). Um candidato cortado na revisão recebe `exclude` com o
    motivo, para a decisão ficar registrada; `holdout: true` reserva o canal
-   para a demonstração, fora do treino, mesmo abaixo do mínimo de Shorts.
+   para fora do treino (demonstração e avaliação de canais com poucos Shorts),
+   mesmo abaixo do mínimo.
 2. `validate` resolve cada canal (`channels.list`, 1 unidade) e conta os Shorts
-   publicados até a data de corte pela playlist de Shorts do canal (`UUSH…`,
-   1 unidade a cada 50 vídeos). Resultado em `data/interim/channel_validation.csv`.
-3. `export` grava em `configs/channels.yaml` os canais aprovados e os de
-   demonstração.
+   publicados dentro da janela de coleta pela playlist de Shorts do canal
+   (`UUSH…`, 1 unidade a cada 50 vídeos). Resultado em
+   `data/interim/channel_validation.csv`.
+3. `export` grava em `configs/channels.yaml` os canais de treino e os
+   reservados.
 
 Uso:
     uv run python -m creative_predictor.collect.channels validate [--refresh]
@@ -20,10 +22,10 @@ Uso:
 import argparse
 import statistics
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Self
+from typing import NamedTuple, Self
 
 import pandas as pd
 import yaml
@@ -37,23 +39,29 @@ CANDIDATES_PATH = config.CONFIGS_DIR / "channel_candidates.yaml"
 CHANNELS_PATH = config.CONFIGS_DIR / "channels.yaml"
 VALIDATION_PATH = config.INTERIM_DIR / "channel_validation.csv"
 
-# Vídeos precisam de ao menos 30 dias de exposição na data da coleta.
+# Janela de coleta. O fim deixa ao menos 30 dias de exposição até a coleta. O
+# início é 15/10/2024, quando os Shorts passaram a aceitar até 3 minutos: assim
+# todos os vídeos da base seguem a mesma regra da plataforma, e ficam de fora
+# vídeos verticais antigos que o YouTube reclassificou como Shorts.
+DEFAULT_WINDOW_START = date(2024, 10, 15)
 DEFAULT_CUTOFF = date(2026, 8, 28)
-MIN_SHORTS = 50
-# A coleta traz os metadados dos 300 Shorts mais recentes de cada canal (base
-# do histórico do canal), então a contagem para nesse número e economiza cota.
-MAX_SHORTS_PER_CHANNEL = 300
-# Só os 120 mais recentes seguem para download e extração multimodal.
+MIN_SHORTS = 50  # Shorts dentro da janela
+# Até 120 Shorts por canal seguem para download e extração multimodal,
+# distribuídos ao longo da janela (e não os mais recentes), para cada canal
+# cobrir o mesmo período no split temporal.
 MEDIA_SHORTS_PER_CHANNEL = 120
-# Engajamento típico do canal: medianas sobre os 50 Shorts mais recentes
-# antes do corte (1 unidade de cota em `videos.list`).
+# Engajamento típico do canal: medianas sobre os 50 Shorts mais recentes da
+# janela (1 unidade de cota em `videos.list`).
 ENGAGEMENT_SAMPLE = 50
 # Abaixo disso o alvo relativo ao canal fica ruidoso (poucas curtidas por
 # Short); o canal continua na base, só marcado com `low_engagement`.
 LOW_ENGAGEMENT_LIKES = 10
 LOW_ENGAGEMENT_VIEWS = 1_000  # usado quando o canal oculta as curtidas
-# Canal sem Short novo nos 180 dias antes do corte é marcado como inativo.
-ACTIVE_WINDOW_DAYS = 180
+# Curtidas abaixo de 0,3% das views indicam Short impulsionado como anúncio
+# (views pagas). `paid_share` é a fração da amostra nessa situação; acima de
+# 30%, as views do canal medem mais a verba de mídia do que o conteúdo.
+PAID_LIKE_RATE = 0.003
+MAX_PAID_SHARE = 0.3
 
 
 class Sector(StrEnum):
@@ -77,6 +85,7 @@ class Status(StrEnum):
     NOT_FOUND = "canal_nao_encontrado"
     NO_SHORTS = "sem_shorts"
     FEW_SHORTS = "poucos_shorts"
+    PAID_MEDIA = "midia_paga"
 
 
 class Candidate(BaseModel):
@@ -109,6 +118,7 @@ class Validation(BaseModel):
     region: Region
     kind: Kind
     holdout: bool = False
+    window_start: date
     cutoff: date
     status: Status
     channel_id: str | None = None
@@ -118,11 +128,11 @@ class Validation(BaseModel):
     subscribers: int | None = None
     videos_total: int | None = None
     shorts_total: int | None = None
-    shorts_until_cutoff: int | None = None
+    shorts_in_window: int | None = None
     latest_short: date | None = None
-    active: bool | None = None
     median_views: float | None = None
     median_likes: float | None = None
+    paid_share: float | None = None
 
 
 def load_candidates(path: Path | None = None) -> list[Candidate]:
@@ -146,32 +156,29 @@ def _published_date(item: dict) -> date | None:
 
 @dataclass
 class ShortsScan:
-    limit: int = MAX_SHORTS_PER_CHANNEL
     total: int = 0
     latest: date | None = None
-    # (data, video_id) dos Shorts publicados até o corte
-    before_cutoff: list[tuple[date, str]] = field(default_factory=list)
-
-    @property
-    def until_cutoff(self) -> int:
-        return min(len(self.before_cutoff), self.limit)
+    # (data, video_id) dos Shorts publicados dentro da janela
+    in_window: list[tuple[date, str]] = field(default_factory=list)
 
     def recent_ids(self, n: int = ENGAGEMENT_SAMPLE) -> list[str]:
-        return [video_id for _, video_id in sorted(self.before_cutoff)[::-1][:n]]
+        return [video_id for _, video_id in sorted(self.in_window)[::-1][:n]]
 
 
 def count_shorts(
     client: YouTubeClient,
     channel_id: str,
-    cutoff: date,
-    limit: int = MAX_SHORTS_PER_CHANNEL,
+    window_start: date = DEFAULT_WINDOW_START,
+    cutoff: date = DEFAULT_CUTOFF,
 ) -> ShortsScan | None:
-    """Conta Shorts publicados até `cutoff`, parando em `limit`.
+    """Conta os Shorts publicados entre `window_start` e `cutoff`.
 
-    Devolve None se o canal não tem playlist de Shorts.
+    A playlist vem do mais recente para o mais antigo, então a varredura para
+    na primeira página que já passou do início da janela. Devolve None se o
+    canal não tem playlist de Shorts.
     """
     playlist_id = shorts_playlist_id(channel_id)
-    scan = ShortsScan(limit=limit)
+    scan = ShortsScan()
     page_token = None
     while True:
         params = {"part": "contentDetails", "playlistId": playlist_id, "maxResults": 50}
@@ -186,33 +193,47 @@ def count_shorts(
                 return None
             raise
         scan.total = response.get("pageInfo", {}).get("totalResults", scan.total)
+        reached_start = False
         for item in response.get("items", []):
             published = _published_date(item)
             if published is None:
                 continue
             scan.latest = max(scan.latest, published) if scan.latest else published
-            if published <= cutoff:
-                scan.before_cutoff.append(
-                    (published, item["contentDetails"]["videoId"])
-                )
+            if published < window_start:
+                reached_start = True
+            elif published <= cutoff:
+                scan.in_window.append((published, item["contentDetails"]["videoId"]))
         page_token = response.get("nextPageToken")
-        if scan.until_cutoff >= limit or not page_token:
+        if reached_start or not page_token:
             return scan
 
 
-def median_engagement(
-    client: YouTubeClient, video_ids: list[str]
-) -> tuple[float | None, float | None]:
-    """Medianas de views e curtidas (curtidas ocultas ficam de fora)."""
+class Engagement(NamedTuple):
+    median_views: float | None = None
+    median_likes: float | None = None
+    paid_share: float | None = None
+
+
+def measure_engagement(client: YouTubeClient, video_ids: list[str]) -> Engagement:
+    """Medianas de views e curtidas e fração de Shorts com cara de anúncio.
+
+    Curtidas ocultas ficam de fora das medianas e da fração.
+    """
     if not video_ids:
-        return None, None
+        return Engagement()
     response = client.list("videos", part="statistics", id=",".join(video_ids[:50]))
     stats = [item.get("statistics", {}) for item in response.get("items", [])]
     views = [int(s["viewCount"]) for s in stats if "viewCount" in s]
     likes = [int(s["likeCount"]) for s in stats if "likeCount" in s]
-    return (
+    rates = [
+        int(s["likeCount"]) / int(s["viewCount"])
+        for s in stats
+        if "likeCount" in s and int(s.get("viewCount", 0)) > 0
+    ]
+    return Engagement(
         statistics.median(views) if views else None,
         statistics.median(likes) if likes else None,
+        sum(r < PAID_LIKE_RATE for r in rates) / len(rates) if rates else None,
     )
 
 
@@ -229,6 +250,7 @@ def fetch_channel(client: YouTubeClient, candidate: Candidate) -> dict | None:
 def validate_candidate(
     client: YouTubeClient,
     candidate: Candidate,
+    window_start: date = DEFAULT_WINDOW_START,
     cutoff: date = DEFAULT_CUTOFF,
     min_shorts: int = MIN_SHORTS,
 ) -> Validation:
@@ -239,6 +261,7 @@ def validate_candidate(
         "region": candidate.region,
         "kind": candidate.kind,
         "holdout": candidate.holdout,
+        "window_start": window_start,
         "cutoff": cutoff,
     }
     channel = fetch_channel(client, candidate)
@@ -256,34 +279,39 @@ def validate_candidate(
         ),
         "videos_total": stats.get("videoCount"),
     }
-    scan = count_shorts(client, channel["id"], cutoff)
+    scan = count_shorts(client, channel["id"], window_start, cutoff)
     if scan is None:
         return Validation(**base, **info, status=Status.NO_SHORTS)
 
-    status = Status.OK if scan.until_cutoff >= min_shorts else Status.FEW_SHORTS
-    latest = scan.latest
-    active = latest is not None and latest >= cutoff - timedelta(ACTIVE_WINDOW_DAYS)
-    median_views, median_likes = median_engagement(client, scan.recent_ids())
+    in_window = len(scan.in_window)
+    engagement = measure_engagement(client, scan.recent_ids())
+    if in_window < min_shorts:
+        status = Status.FEW_SHORTS
+    elif (engagement.paid_share or 0) > MAX_PAID_SHARE:
+        status = Status.PAID_MEDIA
+    else:
+        status = Status.OK
     return Validation(
         **base,
         **info,
         status=status,
         shorts_total=scan.total,
-        shorts_until_cutoff=scan.until_cutoff,
-        latest_short=latest,
-        active=active,
-        median_views=median_views,
-        median_likes=median_likes,
+        shorts_in_window=in_window,
+        latest_short=scan.latest,
+        **engagement._asdict(),
     )
 
 
 def validate(
     candidates: list[Candidate],
     client: YouTubeClient,
+    window_start: date = DEFAULT_WINDOW_START,
     cutoff: date = DEFAULT_CUTOFF,
 ) -> pd.DataFrame:
+    if window_start > cutoff:
+        raise ValueError(f"janela invertida: início {window_start} > corte {cutoff}")
     rows = [
-        validate_candidate(client, c, cutoff).model_dump(mode="json")
+        validate_candidate(client, c, window_start, cutoff).model_dump(mode="json")
         for c in candidates
         if not c.exclude
     ]
@@ -332,18 +360,17 @@ def export_channels(validation: pd.DataFrame) -> dict:
     """Conteúdo de `configs/channels.yaml` a partir da validação.
 
     `channels`: aprovados (status ok) que entram no treino. `holdout_channels`:
-    canais reservados para a demonstração, encontrados e com Shorts, mesmo
-    abaixo do mínimo.
+    canais reservados, fora do treino, com ao menos um Short na janela.
     """
-    cutoffs = validation["cutoff"].unique()
-    if len(cutoffs) != 1:
-        raise ValueError(f"validação com mais de uma data de corte: {cutoffs}")
+    window = validation[["window_start", "cutoff"]].drop_duplicates()
+    if len(window) != 1:
+        raise ValueError(f"validação com mais de uma janela: {window.values.tolist()}")
     holdout = validation["holdout"].astype(bool)
-    has_shorts = validation["status"].isin([Status.OK, Status.FEW_SHORTS])
+    has_shorts = validation["shorts_in_window"].fillna(0) >= 1
     return {
-        "cutoff": str(cutoffs[0]),
+        "window_start": str(window["window_start"].iloc[0]),
+        "cutoff": str(window["cutoff"].iloc[0]),
         "min_shorts": MIN_SHORTS,
-        "max_shorts_per_channel": MAX_SHORTS_PER_CHANNEL,
         "media_shorts_per_channel": MEDIA_SHORTS_PER_CHANNEL,
         "channels": _channel_entries(
             validation[~holdout & (validation["status"] == Status.OK)]
@@ -371,7 +398,7 @@ def summarize(validation: pd.DataFrame) -> pd.DataFrame:
 
 def _cmd_validate(args: argparse.Namespace) -> None:
     client = YouTubeClient(refresh=args.refresh)
-    validation = validate(load_candidates(), client, args.cutoff)
+    validation = validate(load_candidates(), client, args.window_start, args.cutoff)
     VALIDATION_PATH.parent.mkdir(parents=True, exist_ok=True)
     validation.to_csv(VALIDATION_PATH, index=False)
 
@@ -385,11 +412,11 @@ def _cmd_validate(args: argparse.Namespace) -> None:
         "status",
         "country",
         "subscribers",
-        "shorts_until_cutoff",
+        "shorts_in_window",
         "latest_short",
-        "active",
         "median_views",
         "median_likes",
+        "paid_share",
     ]
     with pd.option_context("display.max_rows", None, "display.width", 200):
         print(validation[columns].to_string(index=False))
@@ -439,7 +466,14 @@ def _cmd_search(args: argparse.Namespace) -> None:
 
 
 def _cmd_export(args: argparse.Namespace) -> None:
-    validation = apply_candidates(pd.read_csv(VALIDATION_PATH), load_candidates())
+    validation = pd.read_csv(VALIDATION_PATH)
+    missing = {"window_start", "shorts_in_window"} - set(validation.columns)
+    if missing:
+        raise SystemExit(
+            f"{VALIDATION_PATH} não tem {sorted(missing)}: é de uma versão anterior "
+            "da validação. Rode `validate` de novo antes do `export`."
+        )
+    validation = apply_candidates(validation, load_candidates())
     content = export_channels(validation)
     CHANNELS_PATH.write_text(
         _EXPORT_HEADER + yaml.safe_dump(content, allow_unicode=True, sort_keys=False)
@@ -456,9 +490,13 @@ _EXPORT_HEADER = """\
 # configs/channel_candidates.yaml; não editar à mão.
 #
 # channels: canais da base (treino e teste). holdout_channels: canais fora do
-# treino, usados na demonstração com métrica real conhecida.
+# treino, usados na demonstração (métrica real conhecida) e para avaliar o
+# modelo em canais com poucos Shorts.
+# window_start/cutoff: janela de publicação dos Shorts coletados.
+# media_shorts_per_channel: Shorts por canal que seguem para a extração
+# multimodal, distribuídos ao longo da janela.
 # low_engagement: mediana de curtidas < 10 (ou de views < 1.000, se as
-# curtidas estão ocultas) nos 50 Shorts mais recentes antes do corte.
+# curtidas estão ocultas) nos 50 Shorts mais recentes da janela.
 """
 
 
@@ -467,6 +505,9 @@ def main(argv: list[str] | None = None) -> None:
     sub = parser.add_subparsers(dest="command", required=True)
 
     validate_cmd = sub.add_parser("validate")
+    validate_cmd.add_argument(
+        "--window-start", type=date.fromisoformat, default=DEFAULT_WINDOW_START
+    )
     validate_cmd.add_argument(
         "--cutoff", type=date.fromisoformat, default=DEFAULT_CUTOFF
     )
