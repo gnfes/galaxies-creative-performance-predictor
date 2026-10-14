@@ -27,6 +27,11 @@ RAW_DIR = DATA_DIR / "raw"
 INTERIM_DIR = DATA_DIR / "interim"
 PROCESSED_DIR = DATA_DIR / "processed"
 
+# Registro dos experimentos na raiz do projeto, de onde quer que o código rode
+# (um notebook em notebooks/ não cria um registro separado).
+MLFLOW_TRACKING_URI = f"sqlite:///{ROOT_DIR / 'mlflow.db'}"
+MLFLOW_ARTIFACTS_DIR = ROOT_DIR / "mlartifacts"
+
 load_dotenv(ROOT_DIR / ".env")
 
 
