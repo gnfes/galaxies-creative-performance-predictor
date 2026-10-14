@@ -176,6 +176,7 @@ def test_measure_engagement_ignores_hidden_likes(tmp_path):
     assert engagement.median_views == 200
     assert engagement.median_likes == 2.5  # curtidas de v0-0 ocultas: [2, 3]
     assert engagement.paid_share == 0
+    assert engagement.hidden_likes_share == pytest.approx(1 / 3)
 
 
 def test_measure_engagement_paid_share(tmp_path):
@@ -311,6 +312,7 @@ def validation_row(key, status="ok", holdout=False, likes=100.0, views=5000.0, *
         "shorts_in_window": 80 if status == "ok" else 10,
         "median_views": views,
         "median_likes": likes,
+        "hidden_likes_share": 0.0,
     } | kw
 
 
@@ -496,6 +498,38 @@ def test_validate_candidate_rejects_paid_media(tmp_path):
     result = channels.validate_candidate(client, candidate(), START, CUTOFF)
     assert result.status == Status.PAID_MEDIA
     assert result.paid_share == 0.4
+
+
+def test_validate_candidate_rejects_hidden_likes(tmp_path):
+    def hidden_stats(params):
+        ids = params["id"].split(",")
+        return {"items": [{"id": v, "statistics": {"viewCount": "500"}} for v in ids]}
+
+    client, _ = make_client(
+        tmp_path,
+        channels=lambda p: {"items": [channel_item()]},
+        playlistItems=playlist_pages(["2026-08-01"] * 60),
+        videos=hidden_stats,
+    )
+    result = channels.validate_candidate(client, candidate(), START, CUTOFF)
+    assert result.status == Status.HIDDEN_LIKES
+    assert result.hidden_likes_share == 1
+
+
+def test_export_channels_drops_holdout_with_hidden_likes():
+    validation = pd.DataFrame(
+        [
+            validation_row("a"),
+            validation_row(
+                "d", status="poucos_shorts", holdout=True, hidden_likes_share=0.0
+            ),
+            validation_row(
+                "e", status="poucos_shorts", holdout=True, hidden_likes_share=1.0
+            ),
+        ]
+    )
+    content = channels.export_channels(validation)
+    assert [c["channel_id"] for c in content["holdout_channels"]] == ["UCd"]
 
 
 def test_validate_rejects_inverted_window(tmp_path):
