@@ -61,3 +61,9 @@ def test_likes_from_target_inverts_relative_target():
     median = pd.Series([3.0, 5.0, 120.0])
     y = target.relative_target(likes, median)
     np.testing.assert_allclose(target.likes_from_target(y, median), likes)
+
+
+def test_history_rejects_duplicate_index():
+    shorts = pd.concat([frame([1, 2], "UCa"), frame([3], "UCb")])
+    with pytest.raises(ValueError, match="índice repetido"):
+        target.channel_history(shorts)

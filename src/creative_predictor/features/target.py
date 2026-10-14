@@ -24,10 +24,14 @@ def channel_history(
 ) -> pd.DataFrame:
     """Mediana e número de Shorts anteriores com curtidas, por Short.
 
-    Espera `video_id`, `channel_id`, `published_at` e `likes` (nulo quando
-    oculto). Devolve um DataFrame com o mesmo índice e as colunas
+    Espera `channel_id`, `published_at` e `likes` (nulo quando oculto), com
+    índice sem repetição. Devolve um DataFrame com o mesmo índice e as colunas
     `history_median_likes` e `history_count`.
     """
+    if not shorts.index.is_unique:
+        # Os resultados voltam para as linhas pelo índice: rótulos repetidos
+        # mandariam o histórico de um Short para outro.
+        raise ValueError("índice repetido: use reset_index antes de calcular o alvo")
     out = pd.DataFrame(
         {"history_median_likes": np.nan, "history_count": 0}, index=shorts.index
     )

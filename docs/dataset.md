@@ -2,7 +2,16 @@
 
 Base usada para treinar e avaliar o modelo que prevê, antes da publicação, quantas curtidas um
 YouTube Short vai receber em relação ao histórico do próprio canal. A análise exploratória completa
-está em [`notebooks/01_eda.ipynb`](../notebooks/01_eda.ipynb).
+está em [`notebooks/01_eda.ipynb`](../notebooks/01_eda.ipynb), que lê as tabelas de `data/processed/`
+(geradas pela coleta abaixo). Para executar o notebook de ponta a ponta no ambiente do projeto:
+
+```bash
+uv run python -m ipykernel install --prefix .venv --name creative-predictor
+uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.kernel_name=creative-predictor notebooks/01_eda.ipynb
+```
+
+O primeiro comando registra o kernel do ambiente do projeto dentro de `.venv`, para o Jupyter não
+usar outro Python instalado na máquina.
 
 ## Origem
 
@@ -45,7 +54,8 @@ está em [`notebooks/01_eda.ipynb`](../notebooks/01_eda.ipynb).
 | Canais de demonstração | 13 | 215 | 215 |
 
 - 60 dos 87 canais são do Brasil (47 criadores e 13 marcas); os 27 globais são 5 criadores e 22
-  marcas, de EUA, Reino Unido, Alemanha, França, Itália, Espanha e Suécia.
+  marcas, de EUA, Reino Unido, Alemanha, França, Itália, Espanha e Suécia (5 sem país declarado
+  na API).
 - 30.060 Shorts da janela têm alvo (106 têm curtidas ocultas e 21 não têm histórico suficiente).
 - **Amostra multimodal**: até 120 Shorts por canal (com curtidas visíveis e até 3 minutos),
   espalhados no tempo ao longo da janela, que seguem para download, extração de frames, transcrição e atributos por VLM. Espalhar no tempo
@@ -126,7 +136,8 @@ do mesmo canal publicados antes do Short (mínimo de 10). Implementação em
 ## Limitações
 
 - A playlist de Shorts (`UUSH`) não é documentada pela API. Ela se mostrou confiável na base
-  (ordem cronológica e só 0,13% de vídeos acima de 3 minutos), mas pode mudar sem aviso.
+  (ordem cronológica e só 88 dos 30.187 Shorts da janela, 0,3%, acima de 3 minutos), mas pode
+  mudar sem aviso.
 - Inscritos, views e curtidas são os da data da coleta, não os da data da publicação. Por isso o
   alvo usa o histórico de curtidas dos posts anteriores, e os inscritos entram só como referência
   da baseline.
