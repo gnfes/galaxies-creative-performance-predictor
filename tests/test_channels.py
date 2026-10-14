@@ -4,6 +4,7 @@ import httplib2
 import pandas as pd
 import pytest
 import yaml
+from fakes import make_client
 from googleapiclient.errors import HttpError
 from pydantic import ValidationError
 
@@ -14,41 +15,6 @@ from creative_predictor.collect.youtube import YouTubeClient
 START = date(2025, 1, 1)
 CUTOFF = date(2026, 8, 28)
 CHANNEL_ID = "UCabc123"
-
-
-class FakeRequest:
-    def __init__(self, result):
-        self._result = result
-
-    def execute(self):
-        if isinstance(self._result, Exception):
-            raise self._result
-        return self._result
-
-
-class FakeResource:
-    def __init__(self, handler):
-        self._handler = handler
-
-    def list(self, **params):
-        return FakeRequest(self._handler(params))
-
-
-class FakeService:
-    """Imita `build("youtube", "v3")`: cada recurso responde por uma função."""
-
-    def __init__(self, **handlers):
-        self.handlers = handlers
-        self.calls = []
-
-    def __getattr__(self, resource):
-        handler = self.handlers[resource]
-
-        def logged(params):
-            self.calls.append((resource, params))
-            return handler(params)
-
-        return lambda: FakeResource(logged)
 
 
 def not_found():
@@ -95,11 +61,6 @@ def videos_stats(params):
             stats["likeCount"] = str(n + 1)
         items.append({"id": video_id, "statistics": stats})
     return {"items": items}
-
-
-def make_client(tmp_path, **handlers):
-    service = FakeService(**handlers)
-    return YouTubeClient(service=service, cache_dir=tmp_path), service
 
 
 def candidate(**overrides):
