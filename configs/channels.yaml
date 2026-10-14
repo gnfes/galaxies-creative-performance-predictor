@@ -7,9 +7,8 @@
 # window_start/cutoff: janela de publicação dos Shorts coletados.
 # media_shorts_per_channel: Shorts por canal que seguem para a extração
 # multimodal, distribuídos ao longo da janela.
-# low_engagement: mediana de curtidas < 10 (ou de views < 1.000, se as
-# curtidas estão ocultas) nos 50 Shorts mais recentes da janela.
-# Canais que ocultam as curtidas na maior parte dos Shorts ficam de fora: as
+# low_engagement: mediana de curtidas < 10 nos 50 Shorts mais recentes da
+# janela. Canais que ocultam as curtidas na maior parte dos Shorts ficam de fora: as
 # curtidas são o alvo do modelo.
 window_start: '2024-10-15'
 cutoff: '2026-08-28'

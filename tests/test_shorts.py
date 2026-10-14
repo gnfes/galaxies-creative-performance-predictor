@@ -2,7 +2,7 @@ from datetime import date
 
 import pandas as pd
 import pytest
-from fakes import make_client
+from fakes import make_client, not_found
 
 from creative_predictor.collect import shorts
 
@@ -70,6 +70,8 @@ def test_parse_duration(value, seconds):
 def test_parse_duration_invalid():
     assert shorts.parse_duration(None) is None
     assert shorts.parse_duration("abc") is None
+    assert shorts.parse_duration("PT") is None
+    assert shorts.parse_duration("P") is None
 
 
 def test_list_shorts_keeps_window_plus_history(tmp_path):
@@ -167,3 +169,67 @@ def test_collect_rejects_recent_cutoff(tmp_path):
     client, _ = make_client(tmp_path)
     with pytest.raises(ValueError, match="não estabilizadas"):
         shorts.collect(client, config_dict(), date(2026, 9, 10), progress=False)
+
+
+def test_collect_sample_skips_hidden_likes_and_long_videos(tmp_path):
+    hidden, long_video = "2026-02-01", "2026-03-01"
+
+    def videos(params):
+        items = []
+        for v in params["id"].split(","):
+            items.append(
+                video_item(
+                    v,
+                    channel_id="UCa" if v < "2026-05-01" else "UCh",
+                    likes=v != hidden,
+                    duration="PT3M1S" if v == long_video else "PT30S",
+                )
+            )
+        return {"items": items}
+
+    def pages(params):
+        if params["playlistId"] == "UUSHa":
+            return playlist(["2026-03-01", "2026-02-01", "2026-01-01"])(params)
+        if params["playlistId"] == "UUSHh":
+            return playlist(["2026-06-01"])(params)
+        raise not_found()
+
+    cfg = config_dict(n_media=10)
+    cfg["holdout_channels"] = [
+        cfg["channels"][0] | {"channel_id": "UCh", "name": "H"},
+        cfg["channels"][0] | {"channel_id": "UCx", "name": "X"},  # sem Shorts
+    ]
+    client, _ = make_client(
+        tmp_path,
+        channels=lambda p: {"items": []},
+        playlistItems=pages,
+        videos=videos,
+    )
+    table, channels = shorts.collect(client, cfg, COLLECTED, progress=False)
+
+    sampled = table.loc[table["media_sample"], "video_id"].tolist()
+    assert sampled == ["2026-01-01", "2026-06-01"]
+    assert table.set_index("video_id")["holdout"].to_dict() == {
+        "2026-01-01": False,
+        "2026-02-01": False,
+        "2026-03-01": False,
+        "2026-06-01": True,
+    }
+    assert channels["holdout"].tolist() == [False, True, True]
+
+
+def test_collect_without_shorts_is_an_error(tmp_path):
+    def no_playlist(params):
+        raise not_found()
+
+    client, _ = make_client(
+        tmp_path, channels=lambda p: {"items": []}, playlistItems=no_playlist
+    )
+    with pytest.raises(ValueError, match="nenhum Short"):
+        shorts.collect(client, config_dict(), COLLECTED, progress=False)
+
+
+def test_main_refuses_past_date_without_cache(tmp_path, monkeypatch):
+    monkeypatch.setattr(shorts, "COLLECTION_CACHE_DIR", tmp_path)
+    with pytest.raises(SystemExit, match="Sem cache de 2026-10-01"):
+        shorts.main(["--collected-on", "2026-10-01"])

@@ -114,7 +114,7 @@ _DURATION = re.compile(r"P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?")
 def parse_duration(value: str | None) -> int | None:
     """Duração ISO 8601 da API (ex.: `PT1M5S`) em segundos."""
     match = _DURATION.fullmatch(value or "")
-    if not value or not match:
+    if not match or not any(match.groups()):  # vazio, "P" ou "PT"
         return None
     days, hours, minutes, seconds = (int(g or 0) for g in match.groups())
     return ((days * 24 + hours) * 60 + minutes) * 60 + seconds
@@ -242,8 +242,9 @@ def collect(
         )
 
     channels = _channel_rows(cfg)
-    stats = pd.DataFrame(fetch_channels(client, channels["channel_id"].tolist()))
-    channels = channels.merge(stats, on="channel_id", how="left")
+    stats = fetch_channels(client, channels["channel_id"].tolist())
+    if stats:
+        channels = channels.merge(pd.DataFrame(stats), on="channel_id", how="left")
     channels["collected_on"] = collected_on
 
     frames = []
@@ -254,6 +255,8 @@ def collect(
         if progress:
             print(f"[{n}/{len(channels)}] {ch.name}: {len(rows)} Shorts")
     shorts = pd.concat(frames, ignore_index=True)
+    if shorts.empty:
+        raise ValueError("nenhum Short encontrado nos canais do channels.yaml")
     shorts = shorts.drop_duplicates("video_id").sort_values(
         ["channel_id", "published_at"], ignore_index=True
     )
@@ -300,7 +303,15 @@ def main(argv: list[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
 
+    # A data nomeia o cache e entra na tabela (idade dos vídeos). Uma data
+    # passada só vale para reaproveitar o cache daquele dia: sem ele, a API
+    # devolveria estatísticas de hoje com a data errada.
     cache_dir = COLLECTION_CACHE_DIR / args.collected_on.isoformat()
+    if args.collected_on != datetime.now(UTC).date() and not cache_dir.is_dir():
+        raise SystemExit(
+            f"Sem cache de {args.collected_on} em {cache_dir}: uma coleta nova "
+            "usa a data de hoje (omita --collected-on)."
+        )
     client = YouTubeClient(cache_dir=cache_dir)
     shorts, channels = collect(client, _load_channels_config(), args.collected_on)
 

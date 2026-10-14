@@ -1,5 +1,8 @@
 """Simulador da YouTube Data API para os testes (sem rede nem cota)."""
 
+import httplib2
+from googleapiclient.errors import HttpError
+
 from creative_predictor.collect.youtube import YouTubeClient
 
 
@@ -41,3 +44,7 @@ class FakeService:
 def make_client(tmp_path, **handlers):
     service = FakeService(**handlers)
     return YouTubeClient(service=service, cache_dir=tmp_path), service
+
+
+def not_found():
+    return HttpError(httplib2.Response({"status": 404}), b"playlistNotFound")

@@ -4,7 +4,7 @@ import httplib2
 import pandas as pd
 import pytest
 import yaml
-from fakes import make_client
+from fakes import make_client, not_found
 from googleapiclient.errors import HttpError
 from pydantic import ValidationError
 
@@ -15,10 +15,6 @@ from creative_predictor.collect.youtube import YouTubeClient
 START = date(2025, 1, 1)
 CUTOFF = date(2026, 8, 28)
 CHANNEL_ID = "UCabc123"
-
-
-def not_found():
-    return HttpError(httplib2.Response({"status": 404}), b"playlistNotFound")
 
 
 def channel_item(channel_id=CHANNEL_ID, handle="@canal"):
