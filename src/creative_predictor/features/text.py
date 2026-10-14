@@ -18,6 +18,7 @@ from creative_predictor import config
 
 EMBEDDING_MODEL = "google/embeddinggemma-2"
 EMBEDDING_DIM = 256
+EMBEDDING_PROMPT = "Classification"
 EMBEDDINGS_DIR = config.INTERIM_DIR / "embeddings"
 
 _EMOJI = re.compile("[\U0001f300-\U0001faff☀-➿]")
@@ -69,7 +70,7 @@ def load_encoder(model_name: str = EMBEDDING_MODEL) -> Encoder:
     def encode(texts: list[str]) -> np.ndarray:
         return model.encode(
             texts,
-            prompt_name="Classification",
+            prompt_name=EMBEDDING_PROMPT,
             truncate_dim=EMBEDDING_DIM,
             normalize_embeddings=True,
             batch_size=64,
@@ -80,7 +81,10 @@ def load_encoder(model_name: str = EMBEDDING_MODEL) -> Encoder:
 
 
 def cache_path(field: str, model_name: str = EMBEDDING_MODEL) -> Path:
-    return EMBEDDINGS_DIR / f"{field}__{model_name.replace('/', '__')}.parquet"
+    """Arquivo de cache; muda junto com modelo, prompt e dimensão."""
+    model = model_name.replace("/", "__")
+    name = f"{field}__{model}__{EMBEDDING_PROMPT}__{EMBEDDING_DIM}d.parquet"
+    return EMBEDDINGS_DIR / name
 
 
 def embed_texts(

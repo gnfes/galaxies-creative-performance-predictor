@@ -55,8 +55,10 @@ TEXT_STAT_FEATURES = [
 ]
 # Idade do Short na coleta: não descreve o criativo, mas as curtidas foram
 # medidas nessa idade. Entra como controle; na previsão de um criativo novo,
-# recebe a idade em que se quer estimar o desempenho.
+# recebe `PREDICTION_AGE_DAYS`, e a previsão vale para as curtidas com essa
+# idade (cerca de 3 meses, perto da idade típica do teste).
 CONTROL_FEATURES = ["age_days"]
+PREDICTION_AGE_DAYS = 90
 
 METADATA_FEATURES = (
     CATEGORICAL

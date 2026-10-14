@@ -115,13 +115,19 @@ def fit_lgbm(
 def add_text_embeddings(table: pd.DataFrame, fit_rows: pd.Index) -> list[str]:
     """Acrescenta componentes principais do embedding do título à tabela.
 
-    O PCA é ajustado só nas linhas de treino (`fit_rows`).
+    Só os Shorts da janela (treino, teste e demonstração) recebem embedding;
+    os de histórico anterior não entram no modelo. O PCA é ajustado só nas
+    linhas de treino (`fit_rows`).
     """
-    vectors = embed_texts(table["video_id"], table["title"], cache_path("title"))
+    window = table.index[table["in_window"]]
+    vectors = embed_texts(
+        table.loc[window, "video_id"], table.loc[window, "title"], cache_path("title")
+    )
     pca = PCA(n_components=TEXT_COMPONENTS, random_state=SEED)
     pca.fit(vectors.loc[table.loc[fit_rows, "video_id"]].to_numpy())
     columns = [f"title_pc{i}" for i in range(TEXT_COMPONENTS)]
-    table[columns] = pca.transform(vectors.to_numpy())
+    table[columns] = np.nan
+    table.loc[window, columns] = pca.transform(vectors.to_numpy())
     return columns
 
 
@@ -136,11 +142,20 @@ def subscriber_baseline(split: Split, channels: pd.DataFrame) -> np.ndarray:
     def x(frame):
         return np.log1p(frame["channel_id"].map(subscribers).astype(float)).to_frame()
 
+    train_x = x(split.train)
+    known = train_x.iloc[:, 0].notna().to_numpy()
     reg = LinearRegression().fit(
-        x(split.train), np.log1p(split.train["likes"].astype(float))
+        train_x[known], np.log1p(split.train.loc[known, "likes"].astype(float))
     )
-    log_likes = reg.predict(x(split.test))
-    return log_likes - np.log1p(split.test["history_median_likes"].to_numpy())
+    test_x = x(split.test)
+    # Canal que oculta os inscritos fica com a mediana do próprio canal (y = 0).
+    pred = np.zeros(len(split.test))
+    ok = test_x.iloc[:, 0].notna().to_numpy()
+    if ok.any():
+        log_likes = reg.predict(test_x[ok])
+        median = split.test.loc[ok, "history_median_likes"].to_numpy()
+        pred[ok] = log_likes - np.log1p(median)
+    return pred
 
 
 def channel_split_predictions(
@@ -301,17 +316,14 @@ def run(text_embeddings: bool = False) -> pd.DataFrame:
         "objetivo": objective,
         "intervalo": f"P{int(INTERVAL[0] * 100)}-P{int(INTERVAL[1] * 100)}",
     }
-    results.append(
-        log_run(
-            "lgbm_todos_intervalo",
-            params,
-            evaluate_test(
-                full_model.predict(split.test[full_features]),
-                low=np.minimum(low, high),
-                high=np.maximum(low, high),
-            ),
-        )
+    interval = evaluate_test(
+        full_model.predict(split.test[full_features]),
+        low=np.minimum(low, high),
+        high=np.maximum(low, high),
     )
+    # As métricas pontuais são as do último bloco; aqui só as do intervalo.
+    interval = {k: interval[k] for k in ("n", "coverage", "interval_width")}
+    results.append(log_run("lgbm_todos_intervalo", params, interval))
 
     # Mesmas métricas no subconjunto que vai para a extração multimodal, para
     # comparar depois com os modelos que usam vídeo.

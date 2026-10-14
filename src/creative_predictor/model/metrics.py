@@ -5,8 +5,6 @@ conhecida antes da publicação. Por isso o erro em `y` é o mesmo erro em
 `log(curtidas + 1)`: o MAE em log vale para as duas escalas.
 """
 
-from itertools import combinations
-
 import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
@@ -63,13 +61,13 @@ def pairwise_accuracy(groups: pd.Series, y: np.ndarray, pred: np.ndarray) -> flo
     hits = total = 0.0
     for _, part in frame.groupby("g"):
         ys, ps = part["y"].to_numpy(), part["p"].to_numpy()
-        for i, j in combinations(range(len(part)), 2):
-            if ys[i] == ys[j]:
-                continue
-            total += 1
-            diff = (ys[i] - ys[j]) * (ps[i] - ps[j])
-            hits += 1.0 if diff > 0 else 0.5 if diff == 0 else 0.0
-    return hits / total if total else float("nan")
+        upper = np.triu_indices(len(part), k=1)  # cada par uma vez
+        dy = np.sign(np.subtract.outer(ys, ys)[upper])
+        dp = np.sign(np.subtract.outer(ps, ps)[upper])
+        valid = dy != 0
+        total += valid.sum()
+        hits += (dy * dp == 1)[valid].sum() + 0.5 * (dp == 0)[valid].sum()
+    return float(hits / total) if total else float("nan")
 
 
 def coverage(y: np.ndarray, low: np.ndarray, high: np.ndarray) -> float:
