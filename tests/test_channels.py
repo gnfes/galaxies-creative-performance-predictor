@@ -4,6 +4,7 @@ import httplib2
 import pandas as pd
 import pytest
 import yaml
+from fakes import make_client, not_found
 from googleapiclient.errors import HttpError
 from pydantic import ValidationError
 
@@ -14,45 +15,6 @@ from creative_predictor.collect.youtube import YouTubeClient
 START = date(2025, 1, 1)
 CUTOFF = date(2026, 8, 28)
 CHANNEL_ID = "UCabc123"
-
-
-class FakeRequest:
-    def __init__(self, result):
-        self._result = result
-
-    def execute(self):
-        if isinstance(self._result, Exception):
-            raise self._result
-        return self._result
-
-
-class FakeResource:
-    def __init__(self, handler):
-        self._handler = handler
-
-    def list(self, **params):
-        return FakeRequest(self._handler(params))
-
-
-class FakeService:
-    """Imita `build("youtube", "v3")`: cada recurso responde por uma função."""
-
-    def __init__(self, **handlers):
-        self.handlers = handlers
-        self.calls = []
-
-    def __getattr__(self, resource):
-        handler = self.handlers[resource]
-
-        def logged(params):
-            self.calls.append((resource, params))
-            return handler(params)
-
-        return lambda: FakeResource(logged)
-
-
-def not_found():
-    return HttpError(httplib2.Response({"status": 404}), b"playlistNotFound")
 
 
 def channel_item(channel_id=CHANNEL_ID, handle="@canal"):
@@ -95,11 +57,6 @@ def videos_stats(params):
             stats["likeCount"] = str(n + 1)
         items.append({"id": video_id, "statistics": stats})
     return {"items": items}
-
-
-def make_client(tmp_path, **handlers):
-    service = FakeService(**handlers)
-    return YouTubeClient(service=service, cache_dir=tmp_path), service
 
 
 def candidate(**overrides):
@@ -176,6 +133,7 @@ def test_measure_engagement_ignores_hidden_likes(tmp_path):
     assert engagement.median_views == 200
     assert engagement.median_likes == 2.5  # curtidas de v0-0 ocultas: [2, 3]
     assert engagement.paid_share == 0
+    assert engagement.hidden_likes_share == pytest.approx(1 / 3)
 
 
 def test_measure_engagement_paid_share(tmp_path):
@@ -311,6 +269,7 @@ def validation_row(key, status="ok", holdout=False, likes=100.0, views=5000.0, *
         "shorts_in_window": 80 if status == "ok" else 10,
         "median_views": views,
         "median_likes": likes,
+        "hidden_likes_share": 0.0,
     } | kw
 
 
@@ -496,6 +455,38 @@ def test_validate_candidate_rejects_paid_media(tmp_path):
     result = channels.validate_candidate(client, candidate(), START, CUTOFF)
     assert result.status == Status.PAID_MEDIA
     assert result.paid_share == 0.4
+
+
+def test_validate_candidate_rejects_hidden_likes(tmp_path):
+    def hidden_stats(params):
+        ids = params["id"].split(",")
+        return {"items": [{"id": v, "statistics": {"viewCount": "500"}} for v in ids]}
+
+    client, _ = make_client(
+        tmp_path,
+        channels=lambda p: {"items": [channel_item()]},
+        playlistItems=playlist_pages(["2026-08-01"] * 60),
+        videos=hidden_stats,
+    )
+    result = channels.validate_candidate(client, candidate(), START, CUTOFF)
+    assert result.status == Status.HIDDEN_LIKES
+    assert result.hidden_likes_share == 1
+
+
+def test_export_channels_drops_holdout_with_hidden_likes():
+    validation = pd.DataFrame(
+        [
+            validation_row("a"),
+            validation_row(
+                "d", status="poucos_shorts", holdout=True, hidden_likes_share=0.0
+            ),
+            validation_row(
+                "e", status="poucos_shorts", holdout=True, hidden_likes_share=1.0
+            ),
+        ]
+    )
+    content = channels.export_channels(validation)
+    assert [c["channel_id"] for c in content["holdout_channels"]] == ["UCd"]
 
 
 def test_validate_rejects_inverted_window(tmp_path):

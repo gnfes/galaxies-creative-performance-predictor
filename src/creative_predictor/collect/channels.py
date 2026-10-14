@@ -62,6 +62,9 @@ LOW_ENGAGEMENT_VIEWS = 1_000  # usado quando o canal oculta as curtidas
 # 30%, as views do canal medem mais a verba de mídia do que o conteúdo.
 PAID_LIKE_RATE = 0.003
 MAX_PAID_SHARE = 0.3
+# O alvo do modelo são as curtidas: canal que oculta as curtidas na maior parte
+# dos Shorts não tem alvo e fica fora da base.
+MAX_HIDDEN_LIKES_SHARE = 0.5
 
 
 class Sector(StrEnum):
@@ -86,6 +89,7 @@ class Status(StrEnum):
     NO_SHORTS = "sem_shorts"
     FEW_SHORTS = "poucos_shorts"
     PAID_MEDIA = "midia_paga"
+    HIDDEN_LIKES = "curtidas_ocultas"
 
 
 class Candidate(BaseModel):
@@ -134,6 +138,7 @@ class Validation(BaseModel):
     median_views: float | None = None
     median_likes: float | None = None
     paid_share: float | None = None
+    hidden_likes_share: float | None = None
 
 
 def load_candidates(path: Path | None = None) -> list[Candidate]:
@@ -213,12 +218,14 @@ class Engagement(NamedTuple):
     median_views: float | None = None
     median_likes: float | None = None
     paid_share: float | None = None
+    hidden_likes_share: float | None = None
 
 
 def measure_engagement(client: YouTubeClient, video_ids: list[str]) -> Engagement:
-    """Medianas de views e curtidas e fração de Shorts com cara de anúncio.
+    """Medianas de views e curtidas, fração de Shorts com cara de anúncio e
+    fração de Shorts com curtidas ocultas.
 
-    Curtidas ocultas ficam de fora das medianas e da fração.
+    Curtidas ocultas ficam de fora das medianas e da fração de anúncios.
     """
     if not video_ids:
         return Engagement()
@@ -235,6 +242,7 @@ def measure_engagement(client: YouTubeClient, video_ids: list[str]) -> Engagemen
         statistics.median(views) if views else None,
         statistics.median(likes) if likes else None,
         sum(r < PAID_LIKE_RATE for r in rates) / len(rates) if rates else None,
+        1 - len(likes) / len(stats) if stats else None,
     )
 
 
@@ -288,6 +296,8 @@ def validate_candidate(
     engagement = measure_engagement(client, scan.recent_ids())
     if in_window < min_shorts:
         status = Status.FEW_SHORTS
+    elif (engagement.hidden_likes_share or 0) > MAX_HIDDEN_LIKES_SHARE:
+        status = Status.HIDDEN_LIKES
     elif (engagement.paid_share or 0) > MAX_PAID_SHARE:
         status = Status.PAID_MEDIA
     else:
@@ -363,13 +373,15 @@ def export_channels(validation: pd.DataFrame) -> dict:
     """Conteúdo de `configs/channels.yaml` a partir da validação.
 
     `channels`: aprovados (status ok) que entram no treino. `holdout_channels`:
-    canais reservados, fora do treino, com ao menos um Short na janela.
+    canais reservados, fora do treino, com ao menos um Short na janela e
+    curtidas públicas (sem elas não há métrica real para comparar).
     """
     window = validation[["window_start", "cutoff"]].drop_duplicates()
     if len(window) != 1:
         raise ValueError(f"validação com mais de uma janela: {window.values.tolist()}")
     holdout = validation["holdout"].astype(bool)
     has_shorts = validation["shorts_in_window"].fillna(0) >= 1
+    hidden = validation["hidden_likes_share"].fillna(0) > MAX_HIDDEN_LIKES_SHARE
     return {
         "window_start": str(window["window_start"].iloc[0]),
         "cutoff": str(window["cutoff"].iloc[0]),
@@ -378,7 +390,9 @@ def export_channels(validation: pd.DataFrame) -> dict:
         "channels": _channel_entries(
             validation[~holdout & (validation["status"] == Status.OK)]
         ),
-        "holdout_channels": _channel_entries(validation[holdout & has_shorts]),
+        "holdout_channels": _channel_entries(
+            validation[holdout & has_shorts & ~hidden]
+        ),
     }
 
 
@@ -420,6 +434,7 @@ def _cmd_validate(args: argparse.Namespace) -> None:
         "median_views",
         "median_likes",
         "paid_share",
+        "hidden_likes_share",
     ]
     with pd.option_context("display.max_rows", None, "display.width", 200):
         print(validation[columns].to_string(index=False))
@@ -470,7 +485,9 @@ def _cmd_search(args: argparse.Namespace) -> None:
 
 def _cmd_export(args: argparse.Namespace) -> None:
     validation = pd.read_csv(VALIDATION_PATH)
-    missing = {"window_start", "shorts_in_window"} - set(validation.columns)
+    missing = {"window_start", "shorts_in_window", "hidden_likes_share"} - set(
+        validation.columns
+    )
     if missing:
         raise SystemExit(
             f"{VALIDATION_PATH} não tem {sorted(missing)}: é de uma versão anterior "
@@ -498,8 +515,9 @@ _EXPORT_HEADER = """\
 # window_start/cutoff: janela de publicação dos Shorts coletados.
 # media_shorts_per_channel: Shorts por canal que seguem para a extração
 # multimodal, distribuídos ao longo da janela.
-# low_engagement: mediana de curtidas < 10 (ou de views < 1.000, se as
-# curtidas estão ocultas) nos 50 Shorts mais recentes da janela.
+# low_engagement: mediana de curtidas < 10 nos 50 Shorts mais recentes da
+# janela. Canais que ocultam as curtidas na maior parte dos Shorts ficam de fora: as
+# curtidas são o alvo do modelo.
 """
 
 

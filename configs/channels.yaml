@@ -7,8 +7,9 @@
 # window_start/cutoff: janela de publicação dos Shorts coletados.
 # media_shorts_per_channel: Shorts por canal que seguem para a extração
 # multimodal, distribuídos ao longo da janela.
-# low_engagement: mediana de curtidas < 10 (ou de views < 1.000, se as
-# curtidas estão ocultas) nos 50 Shorts mais recentes da janela.
+# low_engagement: mediana de curtidas < 10 nos 50 Shorts mais recentes da
+# janela. Canais que ocultam as curtidas na maior parte dos Shorts ficam de fora: as
+# curtidas são o alvo do modelo.
 window_start: '2024-10-15'
 cutoff: '2026-08-28'
 min_shorts: 50
@@ -126,13 +127,6 @@ channels:
   region: br
   kind: criador
   low_engagement: false
-- channel_id: UCV1aAz5q_yh3jMOnLa-lk7Q
-  handle: '@fordbrasil'
-  name: Ford Brasil
-  sector: automotivo
-  region: br
-  kind: marca
-  low_engagement: true
 - channel_id: UCnBYf03jmMPiABvbSYbxMcA
   handle: '@hyundaibr'
   name: Hyundai Motor Brasil
@@ -280,13 +274,6 @@ channels:
   region: br
   kind: criador
   low_engagement: false
-- channel_id: UC4fF9JCEv2RHrHwXbHqjDug
-  handle: '@nathsouzaof'
-  name: Nath Souza
-  sector: beleza
-  region: br
-  kind: criador
-  low_engagement: true
 - channel_id: UCAkZ7bimIU9m7wT6Th0FcEw
   handle: '@niinasecrets'
   name: Niina Secrets
@@ -321,13 +308,6 @@ channels:
   sector: beleza
   region: br
   kind: criador
-  low_engagement: false
-- channel_id: UCu4b-uoxVPh64U3NK-4vgpg
-  handle: '@belezanaweb'
-  name: Beleza na Web
-  sector: beleza
-  region: br
-  kind: marca
   low_engagement: false
 - channel_id: UCNWifvx-E-Y7Nykr5feg-Vw
   handle: '@dovebrasil'
@@ -416,13 +396,6 @@ channels:
 - channel_id: UCRSvEADlY-caz3sfDNwvR1A
   handle: '@hudabeauty'
   name: Huda Beauty
-  sector: beleza
-  region: global
-  kind: marca
-  low_engagement: false
-- channel_id: UCoC8wK7Hbj1saQUBlFVaJkA
-  handle: '@lorealparisusa'
-  name: L'Oréal Paris USA
   sector: beleza
   region: global
   kind: marca
