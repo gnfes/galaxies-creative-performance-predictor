@@ -227,6 +227,7 @@ __marimo__/
 # Registro de experimentos do MLflow (local)
 /mlruns/
 /mlartifacts/
+/mlflow.db
 # Cookies exportados para o yt-dlp
 # (sem âncora: cookies não devem ser versionados em nenhum nível)
 cookies*.txt

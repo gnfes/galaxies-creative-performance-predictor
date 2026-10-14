@@ -56,7 +56,7 @@ usar outro Python instalado na máquina.
 - 60 dos 87 canais são do Brasil (47 criadores e 13 marcas); os 27 globais são 5 criadores e 22
   marcas, de EUA, Reino Unido, Alemanha, França, Itália, Espanha e Suécia (5 sem país declarado
   na API).
-- 30.060 Shorts da janela têm alvo (106 têm curtidas ocultas e 21 não têm histórico suficiente).
+- 29.916 Shorts da janela têm alvo (106 têm curtidas ocultas e 165 não têm histórico suficiente).
 - **Amostra multimodal**: até 120 Shorts por canal (com curtidas visíveis e até 3 minutos),
   espalhados no tempo ao longo da janela, que seguem para download, extração de frames, transcrição e atributos por VLM. Espalhar no tempo
   garante que todos os canais cubram o mesmo período no split temporal.
@@ -106,17 +106,21 @@ colunas de `channels.parquet`; `sector` = `sector`.
 ## Alvo
 
 `y = log((curtidas + 1) / (mediana + 1))`, em que `mediana` é a mediana das curtidas dos 20 Shorts
-do mesmo canal publicados antes do Short (mínimo de 10). Implementação em
+do mesmo canal publicados pelo menos 30 dias antes do Short (mínimo de 10). Implementação em
 [`creative_predictor.features.target`](../src/creative_predictor/features/target.py).
 
+- **Intervalo de 30 dias**: as curtidas da base são as da data da coleta. Sem o intervalo, um post
+  da véspera entraria no histórico com curtidas que acumulou depois da publicação do Short previsto.
+  Com 30 dias, o histórico tem só métricas estabilizadas, que são também as únicas disponíveis ao
+  prever um criativo novo.
 - O alvo relativo isola o efeito do conteúdo do tamanho do canal, que é o que interessa para
   escolher entre criativos do mesmo cliente. A previsão absoluta volta por
   `curtidas = (mediana + 1) · exp(y) − 1`.
 - **Curtidas, e não views**: em 31/03/2025 o YouTube passou a contar como view cada vez que um Short
   começa a tocar ou repete. A razão curtidas/view da base cai de ~0,06 para ~0,035 nesse mês, então
   views de antes e de depois não são comparáveis. Views de canais de marca também incluem mídia paga.
-- Distribuição: mediana ≈ 0 e desvio-padrão ≈ 1,0. Quantis P25 = −0,46 (0,63× a mediana do canal),
-  P75 = 0,49 (1,64×) e P95 = 1,86 (6,4×), que são a proposta para as faixas abaixo / na média /
+- Distribuição: mediana ≈ 0 e desvio-padrão ≈ 1,1. Quantis P25 = −0,57 (0,57× a mediana do canal),
+  P75 = 0,51 (1,66×) e P95 = 1,92 (6,8×), que são a proposta para as faixas abaixo / na média /
   acima / viral.
 
 ## O que a base não representa
@@ -141,8 +145,8 @@ do mesmo canal publicados antes do Short (mínimo de 10). Implementação em
 - Inscritos, views e curtidas são os da data da coleta, não os da data da publicação. Por isso o
   alvo usa o histórico de curtidas dos posts anteriores, e os inscritos entram só como referência
   da baseline.
-- Vídeos mais antigos tiveram mais tempo para acumular curtidas: o alvo médio passa de +0,05 (30 a
-  60 dias) para +0,13 (480 a 800 dias). A idade na coleta é controlada na modelagem.
+- Vídeos mais antigos tiveram mais tempo para acumular curtidas: o alvo médio passa de −0,05 (30 a
+  60 dias) para +0,07 (480 a 800 dias). A idade na coleta é controlada na modelagem.
 - O idioma do áudio declarado pelo canal não é confiável (código `sa`, sânscrito, em 1.272 Shorts;
   19% sem idioma). O idioma vem da transcrição.
 - Fuso horário: canais do Brasil usam o horário de São Paulo; canais globais usam o fuso do país
