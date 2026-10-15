@@ -6,6 +6,11 @@ os demais. Para cada candidato mede JSON válido, concordância com a
 referência (`gemini-3.5-flash-lite` com o vídeo nativo), segundos e tokens
 por vídeo. A escolha do extrator sai desses números.
 
+Os números em `reports/vlm_benchmark*.csv` foram medidos com a primeira versão
+da instrução, antes de ela pedir booleanos como true/false e avisar sobre letra
+de música na transcrição. Como o cache é separado por versão da instrução,
+rodar de novo pede tudo outra vez aos modelos (horas de API).
+
 Uso:
     uv run python -m creative_predictor.features.vlm_benchmark --prepare
     uv run python -m creative_predictor.features.vlm_benchmark --models gemini-3.5-flash-lite,gemma-4-31b-it

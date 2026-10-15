@@ -1,4 +1,6 @@
 import json
+import shutil
+import subprocess
 from pathlib import Path
 from typing import ClassVar
 
@@ -92,7 +94,14 @@ def test_extract_caches_answers(tmp_path):
     second = extractor.extract(creative(), root=tmp_path)
     assert extractor.calls == 1
     assert first["rubric"] == second["rubric"]
-    assert (tmp_path / "fake__model" / "v1.json").is_file()
+    prompt = vlm.prompt_id("beleza")
+    assert (tmp_path / "fake__model" / prompt / "v1.json").is_file()
+
+
+def test_prompt_id_changes_with_instructions(monkeypatch):
+    before = vlm.prompt_id("moda")
+    monkeypatch.setattr(vlm, "instructions", lambda sector: "outra instrução")
+    assert vlm.prompt_id("moda") != before
 
 
 def test_extract_does_not_cache_failures(tmp_path):
@@ -139,6 +148,7 @@ def test_transcript_summary():
 
 class FakeYDL:
     fail: ClassVar[set[str]] = set()
+    blocked: ClassVar[set[str]] = set()
 
     def __init__(self, options):
         self.options = options
@@ -152,7 +162,9 @@ class FakeYDL:
     def extract_info(self, url, download):
         video_id = url.rsplit("/", 1)[-1]
         if video_id in self.fail:
-            raise DownloadError("Video unavailable")
+            raise DownloadError("ERROR: [youtube] x: This video is not available")
+        if video_id in self.blocked:
+            raise DownloadError("Sign in to confirm you're not a bot")
         return {"width": 360, "height": 640, "duration": 30}
 
 
@@ -194,3 +206,57 @@ def test_compare_against_reference():
     hook = per_field.set_index("campo").loc["forca_hook_0a10"]
     assert hook["mae"] == 2
     assert per_field.set_index("campo").loc["tem_rosto", "concordancia"] == 1.0
+
+
+def test_temporary_failures_are_retried(tmp_path):
+    FakeYDL.fail, FakeYDL.blocked = set(), {"v"}
+    first = media.download_many(["v"], tmp_path, sleep=0, ydl_class=FakeYDL)
+    assert first["status"].tolist() == ["falha_temporaria"]
+    assert media.read_status("v", tmp_path) is None
+    FakeYDL.blocked = set()
+    again = media.download_many(["v"], tmp_path, sleep=0, ydl_class=FakeYDL)
+    assert again["status"].tolist() == ["ok"]
+
+
+def test_parse_rubric_ignores_text_after_the_json():
+    text = json.dumps(rubric_payload()) + "\nObs.: {sem música}"
+    assert vlm.parse_rubric(text, "beleza").tem_rosto is True
+
+
+def test_invalid_rubric_is_asked_again(tmp_path):
+    extractor = FakeExtractor(text=json.dumps(rubric_payload(forca_hook_0a10=99)))
+    extractor.extract(creative(), root=tmp_path)
+    extractor.extract(creative(), root=tmp_path)
+    assert extractor.calls == 2
+    assert not list(tmp_path.rglob("*.json"))
+
+
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="precisa do ffmpeg")
+def test_frames_when_audio_outlasts_video(tmp_path):
+    video = tmp_path / "v.mp4"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=size=36x64:rate=10:duration=6",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=duration=9",
+            "-c:v",
+            "libx264",
+            "-c:a",
+            "aac",
+            str(video),
+        ],
+        check=True,
+    )
+    assert frames.probe_duration(video, stream="v:0") == pytest.approx(6, abs=0.2)
+    paths = frames.extract_frames(video, tmp_path / "frames")
+    assert len(paths) == 8
+    assert all(p.is_file() for p in paths)

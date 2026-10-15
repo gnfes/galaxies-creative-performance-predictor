@@ -5,13 +5,15 @@ Dois formatos de entrada:
 - frames + transcrição (Gemma pela API ou modelos locais no Ollama): os 8
   frames e a transcrição do Whisper, que custam bem menos tokens que o vídeo.
 
-Cada resposta bruta fica em `data/raw/vlm/<modelo>/<video_id>.json`, com
-tempo e tokens, e nunca é pedida de novo (falhas não vão para o cache). A resposta vira a rubrica do setor
-validada com Pydantic; resposta inválida fica registrada como erro.
+Cada resposta bruta fica em `data/raw/vlm/<modelo>/<instrução>/<video_id>.json`,
+com tempo e tokens, e nunca é pedida de novo (falhas não vão para o cache). A
+pasta `<instrução>` muda quando o texto da instrução muda. A resposta vira a
+rubrica do setor validada com Pydantic; resposta inválida fica registrada como
+erro.
 """
 
+import hashlib
 import json
-import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -55,12 +57,23 @@ _retry = retry(
 )
 
 
+def prompt_id(sector: str) -> str:
+    """Identificador curto da instrução: mudar o texto muda a pasta do cache,
+    para a base inteira ser respondida com a mesma versão."""
+    return hashlib.sha256(instructions(sector).encode()).hexdigest()[:8]
+
+
 def parse_rubric(text: str, sector: str) -> Rubric:
-    """Primeiro objeto JSON do texto, validado contra a rubrica do setor."""
-    match = re.search(r"\{.*\}", text or "", flags=re.DOTALL)
-    if not match:
+    """Primeiro objeto JSON do texto, validado contra a rubrica do setor.
+
+    Lê só o primeiro objeto completo: texto depois dele (inclusive com chaves)
+    é ignorado.
+    """
+    start = (text or "").find("{")
+    if start < 0:
         raise ValueError("resposta sem JSON")
-    return rubric_for(sector).model_validate(json.loads(match.group(0)))
+    data, _ = json.JSONDecoder().raw_decode(text[start:])
+    return rubric_for(sector).model_validate(data)
 
 
 def _context(creative: Creative) -> str:
@@ -77,7 +90,8 @@ class Extractor:
 
     def extract(self, creative: Creative, root: Path = VLM_DIR) -> dict:
         """Resposta do modelo (do cache, se já existe) com rubrica validada."""
-        path = root / self.name.replace("/", "__") / f"{creative.video_id}.json"
+        model_dir = root / self.name.replace("/", "__")
+        path = model_dir / prompt_id(creative.sector) / f"{creative.video_id}.json"
         if path.is_file():
             record = json.loads(path.read_text())
         else:
@@ -90,16 +104,17 @@ class Extractor:
             except Exception as error:  # noqa: BLE001
                 record = {"text": None, "error": str(error)[:500]}
             record["seconds"] = round(time.time() - started, 2)
-            # Só respostas vão para o cache; falhas (cota, rede) são tentadas
-            # de novo na próxima execução.
-            if record["text"] is not None:
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(json.dumps(record, ensure_ascii=False))
         try:
             record["rubric"] = parse_rubric(record["text"], creative.sector)
         except (ValueError, ValidationError, json.JSONDecodeError) as error:
             record["rubric"] = None
             record.setdefault("error", f"rubrica inválida: {str(error)[:300]}")
+        # Só respostas válidas vão para o cache: falha do provedor ou rubrica
+        # inválida é pedida de novo na próxima execução.
+        if record["rubric"] is not None and not path.is_file():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            cached = {k: v for k, v in record.items() if k != "rubric"}
+            path.write_text(json.dumps(cached, ensure_ascii=False))
         return record
 
 
@@ -131,7 +146,11 @@ class GeminiVideo(Extractor):
                 config=types.GenerateContentConfig(
                     temperature=0,
                     response_mime_type="application/json",
-                    response_schema=rubric_for(creative.sector),
+                    # JSON Schema padrão (o `response_schema` da API não aceita
+                    # o `additionalProperties` da rubrica).
+                    response_json_schema=rubric_for(
+                        creative.sector
+                    ).model_json_schema(),
                 ),
             )
         finally:
@@ -218,4 +237,7 @@ CANDIDATES = {
     "qwen3.5:9b": lambda: OllamaFrames("qwen3.5:9b"),
 }
 REFERENCE = "gemini-3.5-flash-lite"
+# Escolhido no benchmark de 28 Shorts: o mais próximo da referência e com pesos
+# abertos, para a Galaxies rodar o mesmo modelo localmente com criativos inéditos.
+EXTRACTOR = "gemma-4-31b-it"
 LOCAL = {"gemma4:12b", "qwen3.5:9b"}

@@ -129,7 +129,9 @@ def instructions(sector: str) -> str:
         f"Você analisa um YouTube Short de um canal do setor de {sector}. "
         "Responda somente com um objeto JSON com exatamente estes campos, "
         "em português, sem texto fora do JSON. Notas terminadas em _0a10 são "
-        "inteiros de 0 a 10. tom_narracao é um de: "
+        "inteiros de 0 a 10. Campos de sim ou não são booleanos JSON (true ou "
+        "false), nunca texto. A transcrição pode incluir letra de música de "
+        "fundo, que não é narração. tom_narracao é um de: "
         f"{', '.join(n.value for n in Narration)}. cor_dominante é uma de: "
         f"{', '.join(c.value for c in Color)}.\n{fields}"
     )
