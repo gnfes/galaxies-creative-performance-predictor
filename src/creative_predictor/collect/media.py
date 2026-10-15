@@ -15,6 +15,7 @@ Uso:
 
 import argparse
 import json
+import re
 import time
 from collections.abc import Iterable
 from pathlib import Path
@@ -25,11 +26,20 @@ from creative_predictor import config
 
 MEDIA_DIR = config.RAW_DIR / "media"
 SLEEP_SECONDS = 2.0
+# Vídeo que saiu do ar ou ficou privado não volta: o erro fica registrado.
+# Qualquer outro erro (bloqueio anti-robô, rede, 403/429) é passageiro e o
+# vídeo é tentado de novo na próxima execução.
+PERMANENT_ERRORS = re.compile(
+    r"not available|private video|has been removed|terminated|copyright",
+    re.IGNORECASE,
+)
 
 YDL_OPTIONS = {
     # Menor lado de até 360 px (Shorts são verticais: 360x640), mp4 com áudio.
+    # H.264 em vez de AV1/VP9: decodifica no OpenCV instalado pelo pip, no
+    # ffmpeg de qualquer sistema e nas APIs de vídeo.
     "format": "bv*+ba/b",
-    "format_sort": ["res:360", "ext:mp4:m4a"],
+    "format_sort": ["res:360", "vcodec:h264", "acodec:aac", "ext:mp4:m4a"],
     "merge_output_format": "mp4",
     "writethumbnail": True,
     "postprocessors": [{"key": "FFmpegThumbnailsConvertor", "format": "jpg"}],
@@ -58,7 +68,11 @@ def _write_status(folder: Path, status: dict) -> None:
 
 
 def download(video_id: str, root: Path = MEDIA_DIR, ydl_class=None) -> dict:
-    """Baixa um Short; devolve o status (`ok` ou `erro`, com a mensagem)."""
+    """Baixa um Short; devolve o status (`ok`, `erro` ou `falha_temporaria`).
+
+    Só `ok` e `erro` (vídeo fora do ar) ficam gravados; falha temporária é
+    tentada de novo na próxima execução.
+    """
     if ydl_class is None:
         from yt_dlp import YoutubeDL as ydl_class
     from yt_dlp.utils import DownloadError
@@ -82,12 +96,19 @@ def download(video_id: str, root: Path = MEDIA_DIR, ydl_class=None) -> dict:
             "width": info.get("width"),
             "height": info.get("height"),
             "duration": info.get("duration"),
+            "vcodec": info.get("vcodec"),
         }
     except DownloadError as error:
-        status = {"status": "erro", "erro": str(error)[:500]}
+        message = str(error)[:500]
+        permanent = PERMANENT_ERRORS.search(message)
+        status = {
+            "status": "erro" if permanent else "falha_temporaria",
+            "erro": message,
+        }
     status["video_id"] = video_id
     status["seconds"] = round(time.time() - started, 1)
-    _write_status(folder, status)
+    if status["status"] != "falha_temporaria":
+        _write_status(folder, status)
     return status
 
 

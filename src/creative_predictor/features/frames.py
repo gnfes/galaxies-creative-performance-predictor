@@ -20,23 +20,21 @@ HOOK_TIMES = (0.5, 1.5, 2.5)  # segundos, dentro do gancho
 REST_FRAMES = 5
 
 
-def probe_duration(video: Path) -> float:
-    out = subprocess.run(
-        [
-            "ffprobe",
-            "-v",
-            "error",
-            "-show_entries",
-            "format=duration",
-            "-of",
-            "json",
-            str(video),
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
+def probe_duration(video: Path, stream: str | None = None) -> float:
+    """Duração em segundos do arquivo ou, com `stream` (ex.: "v:0"), da trilha.
+
+    A trilha de vídeo pode ser mais curta que o arquivo quando o áudio dura
+    mais; sem duração própria na trilha, vale a do arquivo.
+    """
+    command = ["ffprobe", "-v", "error", "-of", "json"]
+    if stream:
+        command += ["-select_streams", stream, "-show_entries", "stream=duration"]
+    command += ["-show_entries", "format=duration", str(video)]
+    out = json.loads(
+        subprocess.run(command, check=True, capture_output=True, text=True).stdout
     )
-    return float(json.loads(out.stdout)["format"]["duration"])
+    streams = out.get("streams") or [{}]
+    return float(streams[0].get("duration") or out["format"]["duration"])
 
 
 def frame_times(duration: float) -> list[float]:
@@ -53,32 +51,43 @@ def frame_times(duration: float) -> list[float]:
 
 def extract_frames(video: Path, out_dir: Path) -> list[Path]:
     """Extrai os frames (JPEG, lado menor 360 px); reaproveita os existentes."""
-    times = frame_times(probe_duration(video))
+    times = frame_times(probe_duration(video, stream="v:0"))
     out_dir.mkdir(parents=True, exist_ok=True)
     paths = []
     for i, t in enumerate(times):
         path = out_dir / f"frame_{i}.jpg"
+        # A duração do contêiner pode passar do último frame de vídeo (áudio
+        # mais longo): sem frame no instante pedido, recua até achar um.
+        for seek in (t, max(0.0, t - 1.0), max(0.0, t - 3.0), 0.0):
+            if path.is_file():
+                break
+            _grab_frame(video, seek, path)
         if not path.is_file():
-            subprocess.run(
-                [
-                    "ffmpeg",
-                    "-v",
-                    "error",
-                    "-y",
-                    "-ss",
-                    str(t),
-                    "-i",
-                    str(video),
-                    "-frames:v",
-                    "1",
-                    "-q:v",
-                    "3",
-                    str(path),
-                ],
-                check=True,
-            )
+            raise RuntimeError(f"ffmpeg não extraiu frame de {video} em {t} s")
         paths.append(path)
     return paths
+
+
+def _grab_frame(video: Path, seconds: float, path: Path) -> None:
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-y",
+            "-ss",
+            str(seconds),
+            "-i",
+            str(video),
+            "-frames:v",
+            "1",
+            "-q:v",
+            "3",
+            str(path),
+        ],
+        capture_output=True,
+        check=False,  # instante sem frame: quem chama recua e tenta de novo
+    )
 
 
 def extract_audio(video: Path, out: Path) -> Path | None:

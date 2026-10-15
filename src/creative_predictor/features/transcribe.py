@@ -13,16 +13,18 @@ from creative_predictor import config
 WHISPER_MODEL = "small"
 TRANSCRIPTS_DIR = config.INTERIM_DIR / "transcripts"
 
-_model = None
+_models: dict[str, object] = {}
 
 
 def _load(model_name: str):
-    global _model
-    if _model is None:
+    """Carrega cada modelo do Whisper uma vez por processo."""
+    if model_name not in _models:
         from faster_whisper import WhisperModel
 
-        _model = WhisperModel(model_name, device="cpu", compute_type="int8")
-    return _model
+        _models[model_name] = WhisperModel(
+            model_name, device="cpu", compute_type="int8"
+        )
+    return _models[model_name]
 
 
 def summarize(segments: list[dict], info: dict, duration: float) -> dict:
