@@ -69,5 +69,8 @@ def transcribe(
             duration,
         )
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(result, ensure_ascii=False))
+    # Escrita atômica: outro processo (o extrator) lê este arquivo em paralelo.
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(result, ensure_ascii=False))
+    tmp.replace(path)
     return result
