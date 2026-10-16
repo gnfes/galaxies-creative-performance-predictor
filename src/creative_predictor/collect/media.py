@@ -3,7 +3,10 @@
 Cada vídeo fica em `data/raw/media/<video_id>/` (`video.mp4` e
 `thumbnail.jpg`), e o resultado de cada tentativa em `status.json`, para
 nunca baixar de novo nem repetir um vídeo que saiu do ar. Downloads em
-sequência, com pausa entre eles, para não ser bloqueado pelo YouTube.
+sequência, com pausa aleatória entre eles e uma pausa longa quando o YouTube
+começa a bloquear (várias falhas seguidas), sem login. A ordem é embaralhada
+de forma fixa: se o download parar no meio, o que já baixou representa todos
+os canais.
 
 Antes de cada rodada de download, atualizar o yt-dlp, que muda com
 frequência para acompanhar o YouTube:
@@ -14,10 +17,12 @@ Uso:
 """
 
 import argparse
+import hashlib
 import json
+import random
 import re
 import time
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 
 import pandas as pd
@@ -25,7 +30,9 @@ import pandas as pd
 from creative_predictor import config
 
 MEDIA_DIR = config.RAW_DIR / "media"
-SLEEP_SECONDS = 2.0
+SLEEP_RANGE = (8.0, 15.0)  # segundos entre downloads, sorteados
+COOLDOWN_AFTER = 10  # falhas temporárias seguidas = bloqueio anti-robô
+COOLDOWN_SECONDS = 45 * 60
 # Vídeo que saiu do ar ou ficou privado não volta: o erro fica registrado.
 # Qualquer outro erro (bloqueio anti-robô, rede, 403/429) é passageiro e o
 # vídeo é tentado de novo na próxima execução.
@@ -112,20 +119,42 @@ def download(video_id: str, root: Path = MEDIA_DIR, ydl_class=None) -> dict:
     return status
 
 
+def shuffled_sample(shorts: pd.DataFrame) -> pd.DataFrame:
+    """Shorts da amostra multimodal numa ordem embaralhada e fixa (por hash
+    do id), a mesma em todas as etapas da extração."""
+    sample = shorts[shorts["media_sample"]].copy()
+    sample["order"] = sample["video_id"].map(
+        lambda v: hashlib.sha256(v.encode()).hexdigest()
+    )
+    return sample.sort_values("order").drop(columns="order")
+
+
 def download_many(
     video_ids: Iterable[str],
     root: Path = MEDIA_DIR,
-    sleep: float = SLEEP_SECONDS,
+    sleep: tuple[float, float] = SLEEP_RANGE,
     ydl_class=None,
+    pause: Callable[[float], None] = time.sleep,
 ) -> pd.DataFrame:
-    """Baixa em sequência os que ainda não têm status; devolve todos os status."""
-    results = []
+    """Baixa em sequência os que ainda não têm status; devolve todos os status.
+
+    Depois de `COOLDOWN_AFTER` falhas temporárias seguidas, pausa por
+    `COOLDOWN_SECONDS` antes de continuar; os vídeos que falharam ficam para
+    a próxima execução.
+    """
+    results, streak = [], 0
     for video_id in video_ids:
         status = read_status(video_id, root)
         if status is None:
             status = download(video_id, root, ydl_class)
             print(f"{video_id}: {status['status']} ({status['seconds']} s)")
-            time.sleep(sleep)
+            streak = streak + 1 if status["status"] == "falha_temporaria" else 0
+            if streak >= COOLDOWN_AFTER:
+                print(f"{streak} falhas seguidas: pausa de {COOLDOWN_SECONDS} s")
+                pause(COOLDOWN_SECONDS)
+                streak = 0
+            else:
+                pause(random.uniform(*sleep))
         results.append(status)
     return pd.DataFrame(results)
 
@@ -139,7 +168,7 @@ def main(argv: list[str] | None = None) -> None:
         ids = args.ids.split(",")
     else:
         shorts = pd.read_parquet(config.PROCESSED_DIR / "shorts.parquet")
-        ids = shorts.loc[shorts["media_sample"], "video_id"].tolist()
+        ids = shuffled_sample(shorts)["video_id"].tolist()
     if args.limit:
         ids = ids[: args.limit]
     statuses = download_many(ids)
