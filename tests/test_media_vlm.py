@@ -170,13 +170,17 @@ class FakeYDL:
 
 def test_download_many_records_status_and_skips_done(tmp_path):
     FakeYDL.fail = {"gone"}
-    first = media.download_many(["ok1", "gone"], tmp_path, sleep=0, ydl_class=FakeYDL)
+    first = media.download_many(
+        ["ok1", "gone"], tmp_path, sleep=(0, 0), ydl_class=FakeYDL, pause=lambda s: None
+    )
     assert first.set_index("video_id")["status"].to_dict() == {
         "ok1": "ok",
         "gone": "erro",
     }
     FakeYDL.fail = set()
-    again = media.download_many(["ok1", "gone"], tmp_path, sleep=0, ydl_class=FakeYDL)
+    again = media.download_many(
+        ["ok1", "gone"], tmp_path, sleep=(0, 0), ydl_class=FakeYDL, pause=lambda s: None
+    )
     # Status já gravado não é baixado de novo (nem o vídeo que saiu do ar).
     assert again.set_index("video_id")["status"].to_dict() == {
         "ok1": "ok",
@@ -210,11 +214,15 @@ def test_compare_against_reference():
 
 def test_temporary_failures_are_retried(tmp_path):
     FakeYDL.fail, FakeYDL.blocked = set(), {"v"}
-    first = media.download_many(["v"], tmp_path, sleep=0, ydl_class=FakeYDL)
+    first = media.download_many(
+        ["v"], tmp_path, sleep=(0, 0), ydl_class=FakeYDL, pause=lambda s: None
+    )
     assert first["status"].tolist() == ["falha_temporaria"]
     assert media.read_status("v", tmp_path) is None
     FakeYDL.blocked = set()
-    again = media.download_many(["v"], tmp_path, sleep=0, ydl_class=FakeYDL)
+    again = media.download_many(
+        ["v"], tmp_path, sleep=(0, 0), ydl_class=FakeYDL, pause=lambda s: None
+    )
     assert again["status"].tolist() == ["ok"]
 
 
@@ -260,3 +268,51 @@ def test_frames_when_audio_outlasts_video(tmp_path):
     paths = frames.extract_frames(video, tmp_path / "frames")
     assert len(paths) == 8
     assert all(p.is_file() for p in paths)
+
+
+def test_download_pauses_after_consecutive_failures(tmp_path, monkeypatch):
+    monkeypatch.setattr(media, "COOLDOWN_AFTER", 3)
+    FakeYDL.fail, FakeYDL.blocked = set(), {"a", "b", "c", "d"}
+    pauses = []
+    media.download_many(
+        ["a", "b", "c", "d", "ok"],
+        tmp_path,
+        sleep=(1, 1),
+        ydl_class=FakeYDL,
+        pause=pauses.append,
+    )
+    assert pauses == [1, 1, media.COOLDOWN_SECONDS, 1, 1]
+
+
+def test_corrupt_cache_is_asked_again(tmp_path):
+    extractor = FakeExtractor(text=json.dumps(rubric_payload()))
+    path = extractor.cache_path(creative(), tmp_path)
+    path.parent.mkdir(parents=True)
+    path.write_text('{"text": "corta')  # escrita interrompida
+    record = extractor.extract(creative(), root=tmp_path)
+    assert extractor.calls == 1
+    assert record["rubric"] is not None
+    assert not list(tmp_path.rglob("*.tmp"))
+
+
+def test_read_cached_without_calling_the_model(tmp_path):
+    extractor = FakeExtractor(text=json.dumps(rubric_payload()))
+    extractor.extract(creative(), root=tmp_path)
+    rubric = vlm.read_cached("fake/model", "v1", "beleza", root=tmp_path)
+    assert rubric.swatch is True
+    assert vlm.read_cached("fake/model", "outro", "beleza", root=tmp_path) is None
+
+
+def test_before_request_runs_on_each_call(tmp_path):
+    turns = []
+
+    class Waiting(FakeExtractor):
+        def call(self, creative):
+            self._wait_turn()
+            return super().call(creative)
+
+    extractor = Waiting(text=json.dumps(rubric_payload()))
+    extractor.before_request = lambda: turns.append(1)
+    extractor.extract(creative("a"), root=tmp_path)
+    extractor.extract(creative("b"), root=tmp_path)
+    assert turns == [1, 1]

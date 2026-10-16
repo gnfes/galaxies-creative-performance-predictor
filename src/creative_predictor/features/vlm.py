@@ -15,6 +15,7 @@ erro.
 import hashlib
 import json
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -63,6 +64,31 @@ def prompt_id(sector: str) -> str:
     return hashlib.sha256(instructions(sector).encode()).hexdigest()[:8]
 
 
+def cache_file(model: str, video_id: str, sector: str, root: Path = VLM_DIR) -> Path:
+    return root / model.replace("/", "__") / prompt_id(sector) / f"{video_id}.json"
+
+
+def _read_json(path: Path) -> dict | None:
+    """Conteúdo de um arquivo do cache; None se não existe ou está corrompido."""
+    try:
+        return json.loads(path.read_text())
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+
+
+def read_cached(
+    model: str, video_id: str, sector: str, root: Path = VLM_DIR
+) -> Rubric | None:
+    """Rubrica já extraída para um Short, sem chamar o modelo."""
+    record = _read_json(cache_file(model, video_id, sector, root))
+    if record is None:
+        return None
+    try:
+        return parse_rubric(record["text"], sector)
+    except (ValueError, ValidationError, json.JSONDecodeError):
+        return None
+
+
 def parse_rubric(text: str, sector: str) -> Rubric:
     """Primeiro objeto JSON do texto, validado contra a rubrica do setor.
 
@@ -88,13 +114,22 @@ class Extractor:
         """Texto da resposta e uso de tokens."""
         raise NotImplementedError
 
+    # Chamado antes de cada pedido ao provedor, inclusive nas novas tentativas
+    # (ex.: esperar a vez no limite de tokens por minuto).
+    before_request: Callable[[], None] | None = None
+
+    def _wait_turn(self) -> None:
+        if self.before_request is not None:
+            self.before_request()
+
+    def cache_path(self, creative: Creative, root: Path = VLM_DIR) -> Path:
+        return cache_file(self.name, creative.video_id, creative.sector, root)
+
     def extract(self, creative: Creative, root: Path = VLM_DIR) -> dict:
         """Resposta do modelo (do cache, se já existe) com rubrica validada."""
-        model_dir = root / self.name.replace("/", "__")
-        path = model_dir / prompt_id(creative.sector) / f"{creative.video_id}.json"
-        if path.is_file():
-            record = json.loads(path.read_text())
-        else:
+        path = self.cache_path(creative, root)
+        record = _read_json(path)
+        if record is None:
             started = time.time()
             try:
                 text, usage = self.call(creative)
@@ -114,7 +149,9 @@ class Extractor:
         if record["rubric"] is not None and not path.is_file():
             path.parent.mkdir(parents=True, exist_ok=True)
             cached = {k: v for k, v in record.items() if k != "rubric"}
-            path.write_text(json.dumps(cached, ensure_ascii=False))
+            tmp = path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(cached, ensure_ascii=False))
+            tmp.replace(path)
         return record
 
 
@@ -130,6 +167,8 @@ class GeminiVideo(Extractor):
     @_retry
     def call(self, creative: Creative) -> tuple[str, dict]:
         from google.genai import types
+
+        self._wait_turn()
 
         uploaded = self.client.files.upload(file=str(creative.video))
         try:
@@ -170,6 +209,8 @@ class GeminiFrames(Extractor):
     @_retry
     def call(self, creative: Creative) -> tuple[str, dict]:
         from google.genai import types
+
+        self._wait_turn()
 
         images = [
             types.Part.from_bytes(data=path.read_bytes(), mime_type="image/jpeg")
