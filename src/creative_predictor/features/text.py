@@ -47,7 +47,9 @@ def text_stats(shorts: pd.DataFrame) -> pd.DataFrame:
     out["description_chars"] = description.str.len()
     out["description_links"] = description.str.count(_URL.pattern)
     out["description_hashtags"] = description.str.count(_HASHTAG.pattern)
-    out["n_tags"] = shorts["tags"].map(lambda tags: 0 if tags is None else len(tags))
+    out["n_tags"] = shorts["tags"].map(
+        lambda tags: len(tags) if isinstance(tags, list | tuple | np.ndarray) else 0
+    )
     return out
 
 

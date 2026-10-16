@@ -316,3 +316,16 @@ def test_before_request_runs_on_each_call(tmp_path):
     extractor.extract(creative("a"), root=tmp_path)
     extractor.extract(creative("b"), root=tmp_path)
     assert turns == [1, 1]
+
+
+@pytest.mark.parametrize(
+    ("message", "transient"),
+    [
+        ("429 RESOURCE_EXHAUSTED", True),
+        ("500 INTERNAL. Internal error encountered.", True),
+        ("503 UNAVAILABLE. high demand", True),
+        ("400 INVALID_ARGUMENT", False),
+    ],
+)
+def test_transient_errors_are_retried(message, transient):
+    assert vlm._is_transient(RuntimeError(message)) is transient

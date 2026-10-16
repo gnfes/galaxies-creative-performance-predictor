@@ -9,8 +9,11 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     "easyocr>=1.7.2",
     "faster-whisper>=1.2.1",
+    "fastmcp>=4.1.0",
     "google-api-python-client>=2.200.0",
     "google-genai>=2.25.0",
+    "langchain-ollama>=1.1.0",
+    "langgraph>=1.2.15",
     "lightgbm>=4.7.0",
     "mlflow>=3.17.1",
     "ollama>=0.6.2",
