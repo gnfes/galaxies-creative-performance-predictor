@@ -19,6 +19,9 @@ import warnings
 from dataclasses import dataclass
 
 import lightgbm as lgb
+
+# Sem a dica que o MLflow imprime ao ser importado.
+os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")
 import mlflow
 import numpy as np
 import pandas as pd
@@ -112,7 +115,9 @@ def fit_lgbm(
     )
 
 
-def add_text_embeddings(table: pd.DataFrame, fit_rows: pd.Index) -> list[str]:
+def add_text_embeddings(
+    table: pd.DataFrame, fit_rows: pd.Index
+) -> tuple[list[str], PCA]:
     """Acrescenta componentes principais do embedding do título à tabela.
 
     Só os Shorts da janela (treino, teste e demonstração) recebem embedding;
@@ -128,7 +133,7 @@ def add_text_embeddings(table: pd.DataFrame, fit_rows: pd.Index) -> list[str]:
     columns = [f"title_pc{i}" for i in range(TEXT_COMPONENTS)]
     table[columns] = np.nan
     table.loc[window, columns] = pca.transform(vectors.to_numpy())
-    return columns
+    return columns, pca
 
 
 def subscriber_baseline(split: Split, channels: pd.DataFrame) -> np.ndarray:
@@ -202,7 +207,7 @@ def run(text_embeddings: bool = False) -> pd.DataFrame:
     blocks = dict(BLOCKS)
     if text_embeddings:
         fit_rows = rows.index[rows["split"] == "train"]
-        blocks["texto_embeddings"] = add_text_embeddings(table, fit_rows)
+        blocks["texto_embeddings"], _ = add_text_embeddings(table, fit_rows)
         rows = ds.modeling_rows(table)
 
     mlflow.set_tracking_uri(config.MLFLOW_TRACKING_URI)
