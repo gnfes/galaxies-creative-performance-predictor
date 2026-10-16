@@ -45,13 +45,18 @@ class Creative:
     title: str = ""
 
 
-def _is_rate_limit(error: BaseException) -> bool:
+def _is_transient(error: BaseException) -> bool:
+    """Erros passageiros do provedor, que valem nova tentativa: cota (429),
+    erro interno (500) e sobrecarga (503)."""
     text = str(error)
-    return "429" in text or "RESOURCE_EXHAUSTED" in text or "503" in text
+    return any(
+        code in text
+        for code in ("429", "RESOURCE_EXHAUSTED", "500 INTERNAL", "503", "UNAVAILABLE")
+    )
 
 
 _retry = retry(
-    retry=retry_if_exception(_is_rate_limit),
+    retry=retry_if_exception(_is_transient),
     wait=wait_exponential(multiplier=10, max=120),
     stop=stop_after_attempt(6),
     reraise=True,
