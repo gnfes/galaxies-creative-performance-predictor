@@ -2,6 +2,8 @@
 
 - `local`: para cada Short já baixado, frames, áudio, transcrição e medidas
   visuais e de áudio (CPU).
+- `embed`: embeddings dos frames, do áudio e da transcrição (EmbeddingGemma 2,
+  no GPU do Mac quando houver).
 - `vlm`: rubrica do extrator escolhido (`vlm.EXTRACTOR`) a partir dos frames,
   da transcrição e do título, com pedidos em paralelo e limite de tokens por
   minuto da API.
@@ -17,6 +19,7 @@ que estiver pronto é uma amostra representativa de todos os canais.
 Uso:
     uv run python -m creative_predictor.features.extract local --follow [--shard 0/2]
     uv run python -m creative_predictor.features.extract vlm --follow
+    uv run python -m creative_predictor.features.extract embed --follow
     uv run python -m creative_predictor.features.extract assemble
 """
 
@@ -36,6 +39,7 @@ import pandas as pd
 from creative_predictor import config
 from creative_predictor.collect.media import media_dir, read_status, shuffled_sample
 from creative_predictor.features import frames as fr
+from creative_predictor.features import media_embed
 from creative_predictor.features.transcribe import TRANSCRIPTS_DIR, WHISPER_MODEL
 from creative_predictor.features.transcribe import transcribe as run_transcribe
 from creative_predictor.features.visual import VISUAL_DIR, VisualExtractor
@@ -96,14 +100,21 @@ def local_done(video_id: str) -> bool:
     ).is_file()
 
 
-def run_local(video_id: str, visual: VisualExtractor) -> None:
-    """Frames, áudio, transcrição e medidas visuais de um Short."""
-    video = downloaded(video_id)
+def run_local(
+    video_id: str, visual: VisualExtractor, video: Path | None = None
+) -> tuple[list[Path], Path | None, str]:
+    """Frames, áudio, transcrição e medidas visuais de um Short.
+
+    Devolve os frames, o áudio e o texto transcrito. Sem `video`, usa o
+    arquivo baixado da base.
+    """
+    video = video or downloaded(video_id)
     duration = fr.probe_duration(video)
     frames = fr.frames_for(video_id, video)
     audio = fr.audio_for(video_id, video)
-    run_transcribe(video_id, audio, duration)
+    transcript = run_transcribe(video_id, audio, duration)
     visual(video_id, video, frames, audio, duration)
+    return frames, audio, transcript["text"]
 
 
 def creative_for(row) -> Creative | None:
@@ -268,6 +279,47 @@ def vlm_stage(
         process(pending())
 
 
+def embed_stage(sample: pd.DataFrame, follow: bool, idle_minutes: float) -> None:
+    """Embeddings de frames, áudio e transcrição dos Shorts já processados."""
+    embedder = media_embed.MediaEmbedder()
+    attempts: Counter[str] = Counter()
+
+    def pending():
+        out = []
+        for row in sample.itertuples():
+            if attempts[row.video_id] >= MAX_ATTEMPTS or media_embed.done(row.video_id):
+                continue
+            creative = creative_for(row)
+            if creative is not None:
+                out.append(creative)
+        return out
+
+    def process(creatives):
+        done, started = 0, time.time()
+        for n, creative in enumerate(creatives, 1):
+            attempts[creative.video_id] += 1
+            audio = fr.AUDIO_DIR / f"{creative.video_id}.wav"
+            try:
+                embedder(
+                    creative.video_id,
+                    creative.frames,
+                    audio if audio.is_file() else None,
+                    creative.transcript,
+                )
+                done += 1
+            except Exception as error:  # noqa: BLE001 (um vídeo não para a base)
+                log_error("embed", creative.video_id, error)
+            if n % 50 == 0:
+                rate = (time.time() - started) / n
+                print(f"embed: {n}/{len(creatives)} ({rate:.1f} s/vídeo)", flush=True)
+        return done
+
+    if follow:
+        _follow(pending, process, idle_minutes)
+    else:
+        process(pending())
+
+
 def _flatten(rubric: dict) -> dict:
     """Rubrica em colunas numéricas: booleanos 0/1, notas 0–10 e categorias.
 
@@ -286,35 +338,42 @@ def _flatten(rubric: dict) -> dict:
     return out
 
 
+def media_record(video_id: str, sector: str) -> dict:
+    """Tudo o que já foi extraído de um Short, numa linha plana.
+
+    Só lê o cache: nenhum cálculo e nenhum pedido à API. É a mesma linha que
+    a base de treino usa e que a previsão monta para um criativo novo.
+    """
+    out = {"video_id": video_id}
+    transcript = TRANSCRIPTS_DIR / WHISPER_MODEL / f"{video_id}.json"
+    if transcript.is_file():
+        t = json.loads(transcript.read_text())
+        out |= {
+            "transcript": t["text"],
+            "speech_language": t["language"],
+            "speech_share": t["speech_share"],
+            "speech_words": t["n_words"],
+            "speech_words_per_second": t["words_per_second"],
+        }
+    visual = VISUAL_DIR / f"{video_id}.json"
+    if visual.is_file():
+        out |= json.loads(visual.read_text())
+    rubric = read_cached(EXTRACTOR, video_id, sector)
+    if rubric is not None:
+        out |= _flatten(dict(rubric))
+    return out
+
+
 def assemble(sample: pd.DataFrame) -> pd.DataFrame:
     """Uma linha por Short da amostra com o que já foi extraído."""
-    rows = []
-    for row in sample.itertuples():
-        out = {"video_id": row.video_id}
-        transcript = TRANSCRIPTS_DIR / WHISPER_MODEL / f"{row.video_id}.json"
-        if transcript.is_file():
-            t = json.loads(transcript.read_text())
-            out |= {
-                "transcript": t["text"],
-                "speech_language": t["language"],
-                "speech_share": t["speech_share"],
-                "speech_words": t["n_words"],
-                "speech_words_per_second": t["words_per_second"],
-            }
-        visual = VISUAL_DIR / f"{row.video_id}.json"
-        if visual.is_file():
-            out |= json.loads(visual.read_text())
-        # Só lê respostas já em cache: nenhum pedido à API (nem chave).
-        rubric = read_cached(EXTRACTOR, row.video_id, row.sector)
-        if rubric is not None:
-            out |= _flatten(dict(rubric))
-        rows.append(out)
-    return pd.DataFrame(rows)
+    return pd.DataFrame(
+        [media_record(row.video_id, row.sector) for row in sample.itertuples()]
+    )
 
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("stage", choices=["local", "vlm", "assemble"])
+    parser.add_argument("stage", choices=["local", "vlm", "embed", "assemble"])
     parser.add_argument(
         "--follow", action="store_true", help="acompanha o download até acabar"
     )
@@ -336,6 +395,8 @@ def main(argv: list[str] | None = None) -> None:
         local_stage(shard(sample, args.shard), args.follow, args.idle_minutes)
     elif args.stage == "vlm":
         vlm_stage(sample, args.follow, args.idle_minutes, args.workers)
+    elif args.stage == "embed":
+        embed_stage(sample, args.follow, args.idle_minutes)
     else:
         table = assemble(sample)
         MULTIMODAL_PATH.parent.mkdir(parents=True, exist_ok=True)
