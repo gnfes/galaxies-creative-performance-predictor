@@ -30,7 +30,7 @@ Full dataset card in [`docs/dataset.en.md`](docs/dataset.en.md); exploratory ana
 
 ## Architecture
 
-Full documentation (in Portuguese): [`docs/architecture.md`](docs/architecture.md) (context, containers, pipeline, invariants and decisions) and [`docs/agent.md`](docs/agent.md) (the agent graph, node by node).
+Full documentation: [`docs/architecture.en.md`](docs/architecture.en.md) (context, containers, pipeline, invariants and decisions), [`docs/agent.en.md`](docs/agent.en.md) (the agent graph, node by node) and the model card, [`docs/model.en.md`](docs/model.en.md).
 
 ```mermaid
 flowchart LR

@@ -30,7 +30,7 @@ Ficha completa em [`docs/dataset.md`](docs/dataset.md); análise exploratória e
 
 ## Arquitetura
 
-Documentação completa: [`docs/architecture.md`](docs/architecture.md) (contexto, contêineres, pipeline, invariantes e decisões) e [`docs/agent.md`](docs/agent.md) (o grafo do agente, nó a nó).
+Documentação completa: [`docs/architecture.md`](docs/architecture.md) (contexto, contêineres, pipeline, invariantes e decisões), [`docs/agent.md`](docs/agent.md) (o grafo do agente, nó a nó) e o model card, [`docs/model.md`](docs/model.md).
 
 ```mermaid
 flowchart LR
