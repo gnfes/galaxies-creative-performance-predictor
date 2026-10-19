@@ -129,3 +129,19 @@ def evaluate(
         result["coverage"] = coverage(y, low, high)
         result["interval_width"] = float(np.mean(np.asarray(high) - np.asarray(low)))
     return result
+
+
+def conformal_margin(
+    y: np.ndarray, low: np.ndarray, high: np.ndarray, coverage: float = 0.8
+) -> float:
+    """Folga a somar dos dois lados do intervalo para atingir a cobertura.
+
+    Regressão quantílica conformal (CQR, Romano et al., 2019): o escore de
+    cada ponto da calibração é quanto ele fica fora do intervalo (negativo se
+    dentro), e a folga é o quantil ajustado desses escores.
+    """
+    y, low, high = (np.asarray(a, dtype=float) for a in (y, low, high))
+    scores = np.maximum(low - y, y - high)
+    n = len(scores)
+    level = min(1.0, np.ceil((n + 1) * coverage) / n)
+    return float(np.quantile(scores, level, method="higher"))

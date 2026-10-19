@@ -57,3 +57,17 @@ def test_evaluate_returns_absolute_and_relative_metrics():
     assert result["coverage"] == 1.0
     assert result["interval_width"] == pytest.approx(2.0)
     assert result["mae_log"] == pytest.approx(np.mean(np.abs(frame["target"] - pred)))
+
+
+def test_conformal_margin_reaches_coverage():
+    rng = np.random.default_rng(0)
+    y = rng.normal(size=2_000)
+    # Intervalo estreito demais: cobre ~38% de uma normal padrão.
+    low, high = np.full_like(y, -0.5), np.full_like(y, 0.5)
+    margin = metrics.conformal_margin(y, low, high, coverage=0.8)
+    assert margin > 0
+    assert metrics.coverage(y, low - margin, high + margin) == pytest.approx(
+        0.8, abs=0.02
+    )
+    # Intervalo largo demais: a folga fica negativa e o estreita.
+    assert metrics.conformal_margin(y, low - 5, high + 5, coverage=0.8) < 0
