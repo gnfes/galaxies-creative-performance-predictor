@@ -127,6 +127,7 @@ Package `creative_predictor` (in `src/`):
 - `agent.graph`: the agent; `agent.faithfulness`: the automatic check of the explanations.
 - `mcp_server`: the MCP server.
 - `demo`: the "before and after" test with channels outside training.
+- `app`: Streamlit demo screen (optional `app` dependency), on top of the same prediction function and agent.
 
 Outside the package:
 - `configs/`: channel list;

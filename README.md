@@ -50,6 +50,7 @@ flowchart LR
 - `creative_predictor.predict`: modelo salvo, contrato em Pydantic e a função de previsão.
 - `creative_predictor.agent`: agente em LangGraph (diagrama do grafo: `uv run python -m creative_predictor.agent.graph --mermaid`).
 - `creative_predictor.mcp_server`: servidor MCP.
+- `creative_predictor.app`: tela de demonstração em Streamlit.
 
 O criativo novo entra como mais uma linha no histórico do canal e passa pelas mesmas funções que montaram a base de treino; assim as features da previsão são as mesmas do treino (conferido em Shorts reais).
 
@@ -100,6 +101,13 @@ Servidor MCP (stdio ou HTTP):
 ```bash
 uv run python -m creative_predictor.mcp_server
 uv run python -m creative_predictor.mcp_server --http 8000
+```
+
+Tela de demonstração (Streamlit, dependência opcional `app`): prever um criativo, comparar criativos, ver previsto × real em canais fora do treino e consultar os resultados. Roda localmente e abre no navegador:
+
+```bash
+uv sync --extra app
+uv run --extra app python -m creative_predictor.app
 ```
 
 Demonstração com canais fora do treino (relatório em `reports/demo.md`):

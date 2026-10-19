@@ -127,6 +127,7 @@ Pacote `creative_predictor` (em `src/`):
 - `agent.graph`: o agente; `agent.faithfulness`: a checagem automática das explicações.
 - `mcp_server`: o servidor MCP.
 - `demo`: o teste "de-para" com canais fora do treino.
+- `app`: tela de demonstração em Streamlit (dependência opcional `app`), sobre a mesma função de previsão e o mesmo agente.
 
 Fora do pacote:
 - `configs/`: lista de canais;
