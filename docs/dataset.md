@@ -60,6 +60,11 @@ usar outro Python instalado na máquina.
 - **Amostra multimodal**: até 120 Shorts por canal (com curtidas visíveis e até 3 minutos),
   espalhados no tempo ao longo da janela, que seguem para download, extração de frames, transcrição e atributos por VLM. Espalhar no tempo
   garante que todos os canais cubram o mesmo período no split temporal.
+- **Extração (corte em 19/10/2026)**: dos 9.769 Shorts da amostra (9.554 de treino e teste e 215
+  de demonstração), 9.665 foram baixados e processados (frames, transcrição, sinais do vídeo e do
+  áudio, embeddings), e 9.640 têm a rubrica do `gemma-4-31b-it`. Outros 92 saíram do ar ou ficaram
+  privados depois da coleta, e 12 seguiram bloqueados pelo YouTube. A amostra cobre cerca de 32%
+  das linhas de treino; nas demais, os campos do vídeo ficam vazios.
 - **Canais de demonstração**: 13 canais fora do treino, com poucos Shorts na janela (Garnier, Quem
   Disse Berenice, Camila Gaio, H&M, Toyota do Brasil, Jeep, Chevrolet, Nissan, Reserva, Hering,
   Riachuelo, Alini Bosko, Garagem do Bellote). Servem para a demonstração com métrica real conhecida
@@ -98,6 +103,16 @@ usar outro Python instalado na máquina.
 
 `data/processed/channels.parquet` (um canal por linha): nome, handle, setor, região, tipo,
 `low_engagement`, `holdout`, país, data de criação, inscritos, views e vídeos na data da coleta.
+
+`data/processed/multimodal.parquet` (um Short da amostra por linha, montado por
+`features.extract assemble`):
+- transcrição e medidas de fala: idioma, fração com fala, palavras e palavras por segundo;
+- sinais do vídeo e do áudio: brilho, contraste, saturação, colorido, rostos (YuNet), texto na
+  tela (EasyOCR), movimento, cortes de cena (ffmpeg) e volume e silêncio do áudio;
+- os campos da rubrica do extrator, com o prefixo `vlm_`.
+
+Os embeddings (EmbeddingGemma 2) ficam em `data/interim/embeddings/`, um arquivo por Short e por
+tipo (frames, áudio e transcrição).
 
 Correspondência com o esquema mínimo para retreino: `post_id` = `video_id`; `caption` = `title`
 (+ `description`); `media_ref` = `url`; `metric_target` = `likes`; `channel_stats_at_collection` =

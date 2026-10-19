@@ -13,8 +13,21 @@ import pandas as pd
 
 # Curtidas só se estabilizam com cerca de 30 dias (critério do brief).
 HISTORY_GAP_DAYS = 30
+# Shorts que definem a mediana de curtidas do canal (o alvo, em
+# `features.target`) e a idade do histórico.
+HISTORY_POSTS = 20
 RECENT_POSTS = 20  # janela de posts para as estatísticas de desempenho recente
 FREQUENCY_DAYS = 30  # janela de tempo para a frequência de postagem
+
+# Sinais de que o histórico engana a previsão (validados em `model.confidence`).
+# Histórico desatualizado: os Shorts de referência têm, em mediana, mais que
+# isto de idade (limite escolhido na validação).
+STALE_HISTORY_DAYS = 180
+# Canal em queda: os últimos Shorts estabilizados rendem bem abaixo da mediana
+# (em log; -0,5 é ~60% dela) e o ritmo de postagem caiu.
+DECLINE_POSTS = 5
+DECLINE_TARGET = -0.5
+DECLINE_DAYS = 90
 
 
 def prior_stats(
@@ -88,8 +101,8 @@ def history_features(shorts: pd.DataFrame, channels: pd.DataFrame) -> pd.DataFra
     """Features do histórico do canal para cada Short.
 
     Espera em `shorts` as colunas de `add_target` (`target`,
-    `history_median_likes`) e `duration_s`; em `channels`, `channel_id` e
-    `channel_created_at`.
+    `history_median_likes`), `likes` e `duration_s`; em `channels`,
+    `channel_id` e `channel_created_at`.
     """
     recent = prior_stats(
         shorts, "target", ("mean", "std", "max"), gap_days=HISTORY_GAP_DAYS
@@ -109,4 +122,58 @@ def history_features(shorts: pd.DataFrame, channels: pd.DataFrame) -> pd.DataFra
     out["days_since_prev"] = rhythm["days_since_prev"]
     out["posts_prev_30d"] = rhythm["posts_prev"]
     out["channel_age_days"] = (shorts["published_at"] - created).dt.days
+    out["history_age_days"] = history_age(shorts)
     return out
+
+
+def history_age(shorts: pd.DataFrame) -> pd.Series:
+    """Idade, em dias, dos Shorts que definem a mediana de curtidas do canal.
+
+    É a mediana da idade dos `HISTORY_POSTS` Shorts anteriores com curtidas e
+    pelo menos `HISTORY_GAP_DAYS` dias (os mesmos da mediana do alvo). Um
+    canal que ficou anos sem postar tem um histórico velho: a régua da
+    previsão é de outra época do canal.
+    """
+    days = (shorts["published_at"] - pd.Timestamp("2000-01-01", tz="UTC")).dt.days
+    reference = shorts.assign(reference_day=days.where(shorts["likes"].notna()))
+    stats = prior_stats(
+        reference,
+        "reference_day",
+        ("median",),
+        window=HISTORY_POSTS,
+        gap_days=HISTORY_GAP_DAYS,
+    )
+    return days - stats["median"]
+
+
+def channel_decline(shorts: pd.DataFrame) -> pd.Series:
+    """Se o canal está em queda antes de cada Short.
+
+    Os `DECLINE_POSTS` Shorts estabilizados mais recentes têm alvo médio abaixo
+    de `DECLINE_TARGET` e houve menos Shorts nos últimos `DECLINE_DAYS` dias
+    do que nos `DECLINE_DAYS` anteriores. Espera `target`, além do que
+    `prior_stats` e `posting_rhythm` pedem.
+    """
+    recent = prior_stats(
+        shorts,
+        "target",
+        ("mean",),
+        window=DECLINE_POSTS,
+        gap_days=HISTORY_GAP_DAYS,
+    )
+    last = posting_rhythm(shorts, days=DECLINE_DAYS)["posts_prev"]
+    both = posting_rhythm(shorts, days=2 * DECLINE_DAYS)["posts_prev"]
+    return (
+        (recent["count"] >= DECLINE_POSTS)
+        & (recent["mean"] < DECLINE_TARGET)
+        & (last < both - last)
+    )
+
+
+def history_risk(shorts: pd.DataFrame, decline: pd.Series | None = None) -> pd.Series:
+    """Histórico desatualizado ou canal em queda: a previsão erra mais.
+
+    `decline` é o resultado de `channel_decline`, quando já calculado.
+    """
+    stale = shorts["history_age_days"] > STALE_HISTORY_DAYS
+    return stale | (channel_decline(shorts) if decline is None else decline)

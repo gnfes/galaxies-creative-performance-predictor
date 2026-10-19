@@ -3,9 +3,10 @@
 No macOS, a LightGBM (com a `libomp` do sistema) e o PyTorch (com a sua
 própria `libomp`) não convivem no mesmo processo: carregar o EmbeddingGemma
 num processo que já importou a LightGBM derruba o interpretador. Por isso os
-embeddings são calculados num subprocesso independente
+embeddings, e a extração do vídeo do criativo (`predict.media`, que também
+usa PyTorch no OCR), rodam num subprocesso independente
 (`python -m creative_predictor.predict.worker`), que nunca importa a
-LightGBM. Ele é iniciado na primeira chamada, mantém o modelo carregado e
+LightGBM. Ele é iniciado na primeira chamada, mantém os modelos carregados e
 conversa por linhas JSON na entrada e na saída padrão.
 
 Este módulo não pode importar nada que carregue a LightGBM.
@@ -35,32 +36,72 @@ def _start() -> subprocess.Popen:
     return process
 
 
-def embed(texts: list[str]) -> np.ndarray:
-    """Embeddings do EmbeddingGemma 2 (mesma configuração do treino)."""
+def _ask(request: dict) -> dict:
     global _process
     with _lock:
         if _process is None or _process.poll() is not None:
             _process = _start()
-        _process.stdin.write(json.dumps({"texts": list(texts)}) + "\n")
+        _process.stdin.write(json.dumps(request) + "\n")
         _process.stdin.flush()
         line = _process.stdout.readline()
     if not line:
-        raise RuntimeError("o processo de embeddings terminou sem responder")
+        raise RuntimeError("o subprocesso de PyTorch terminou sem responder")
     reply = json.loads(line)
     if "error" in reply:
-        raise RuntimeError(f"processo de embeddings: {reply['error']}")
+        raise RuntimeError(f"subprocesso de PyTorch: {reply['error']}")
+    return reply
+
+
+def embed(texts: list[str]) -> np.ndarray:
+    """Embeddings do EmbeddingGemma 2 (mesma configuração do treino)."""
+    reply = _ask({"texts": list(texts)})
     return np.asarray(reply["vectors"], dtype=np.float32)
 
 
-def _serve(replies) -> None:
-    """Laço do subprocesso: uma linha JSON por pedido, uma por resposta."""
-    from creative_predictor.features.text import load_encoder
+def media(video: str, sector: str, title: str, use_vlm: bool) -> dict:
+    """Atributos do vídeo de um criativo (ver `predict.media.CreativeMedia`)."""
+    return _ask(
+        {
+            "media": {
+                "video": str(video),
+                "sector": sector,
+                "title": title,
+                "use_vlm": use_vlm,
+            }
+        }
+    )
 
-    encoder = load_encoder()
+
+def _serve(replies) -> None:
+    """Laço do subprocesso: uma linha JSON por pedido, uma por resposta.
+
+    Os modelos só carregam no primeiro pedido que precisa deles.
+    """
+    models: dict = {}
+
+    def handle(request: dict) -> dict:
+        if "media" in request:
+            if "media" not in models:
+                from creative_predictor.predict.media import CreativeMedia
+
+                models["media"] = CreativeMedia()
+                # O modelo completo também codifica texto (mesmos vetores):
+                # uma cópia só do EmbeddingGemma na memória.
+                models.pop("text", None)
+            return models["media"](**request["media"])
+        if "media" in models:
+            encode = models["media"].encode_texts
+        else:
+            if "text" not in models:
+                from creative_predictor.features.text import load_encoder
+
+                models["text"] = load_encoder()
+            encode = models["text"]
+        return {"vectors": encode(request["texts"]).tolist()}
+
     for line in sys.stdin:
         try:
-            vectors = encoder(json.loads(line)["texts"])
-            reply = {"vectors": vectors.tolist()}
+            reply = handle(json.loads(line))
         except Exception as error:  # noqa: BLE001 (o erro volta para quem pediu)
             reply = {"error": str(error)[:500]}
         replies.write(json.dumps(reply) + "\n")

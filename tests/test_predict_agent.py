@@ -88,14 +88,29 @@ class FakeLLM:
 
 def fake_service(monkeypatch):
     values = {"a": 0.8, "b": 1.6}
+    seen = {}
+
+    def predict(item, with_comparables=True, media=None):
+        seen[item.creative_id] = media
+        return prediction(item.creative_id, values[item.creative_id])
+
+    monkeypatch.setattr(graph.service, "predict_creative", predict)
     monkeypatch.setattr(
         graph.service,
-        "predict_creative",
-        lambda item, with_comparables=True: prediction(
-            item.creative_id, values[item.creative_id]
-        ),
+        "creative_media",
+        lambda item: {"record": {"cuts": 3.0}} if item.creative else None,
     )
     monkeypatch.setattr(graph.service, "comparables", lambda item: [])
+    return seen
+
+
+def test_agent_extracts_video_once_and_passes_it_to_the_model(monkeypatch):
+    seen = fake_service(monkeypatch)
+    monkeypatch.setattr(graph, "_llm", lambda: None)
+    graph.analyze(
+        [creative(creative_id="a", creative="v.mp4"), creative(creative_id="b")]
+    )
+    assert seen == {"a": {"record": {"cuts": 3.0}}, "b": None}
 
 
 def test_agent_ranks_and_explains_with_llm(monkeypatch):
@@ -159,6 +174,172 @@ def test_worker_protocol(monkeypatch):
     first, second = (json.loads(line) for line in replies.getvalue().splitlines())
     assert first == {"vectors": [[2.0, 1.0], [3.0, 1.0]]}
     assert "error" in second
+
+
+def test_worker_media_request(monkeypatch):
+    from creative_predictor.predict import media
+
+    calls = []
+
+    class FakeMedia:
+        def __call__(self, **request):
+            calls.append(request)
+            return {"video_id": "criativo_x", "record": {}, "vectors": {}, "notes": []}
+
+    monkeypatch.setattr(media, "CreativeMedia", FakeMedia)
+    request = {"video": "v.mp4", "sector": "moda", "title": "t", "use_vlm": False}
+    monkeypatch.setattr(
+        worker.sys, "stdin", io.StringIO(json.dumps({"media": request}) + "\n")
+    )
+    replies = io.StringIO()
+    worker._serve(replies)
+    assert json.loads(replies.getvalue())["video_id"] == "criativo_x"
+    assert calls == [request]
+
+
+def test_creative_id_reuses_base_id_or_hashes_content(tmp_path, monkeypatch):
+    from creative_predictor.predict import media
+
+    base = tmp_path / "media"
+    (base / "abc123").mkdir(parents=True)
+    (base / "abc123" / "video.mp4").write_bytes(b"x")
+    monkeypatch.setattr(media, "MEDIA_DIR", base)
+    assert media.creative_id(base / "abc123" / "video.mp4") == "abc123"
+    other = tmp_path / "novo.mp4"
+    other.write_bytes(b"x")
+    copy = tmp_path / "copia.mp4"
+    copy.write_bytes(b"x")
+    assert media.creative_id(other).startswith("criativo_")
+    assert media.creative_id(other) == media.creative_id(copy)
+
+
+class FakeBundle:
+    """Modelo mínimo para testar a montagem das colunas e os fatores."""
+
+    def __init__(self):
+        from sklearn.decomposition import PCA
+
+        rng = np.random.default_rng(0)
+        self.media_pcas = {"frames": PCA(n_components=2).fit(rng.normal(size=(10, 4)))}
+        self.blocks = {
+            "metadados": ["duration_s", "title_pc0"],
+            "sinais": ["cuts", "speech_language"],
+            "embeddings": ["frames_pc0", "frames_pc1"],
+            "extrator": ["vlm_forca_hook_0a10", "vlm_cor_dominante", "vlm_swatch"],
+        }
+        self.features = [f for b in self.blocks.values() for f in b]
+
+    def contributions(self, rows):
+        values = {f: 0.1 for f in self.features} | {"frames_pc0": 0.3}
+        return pd.DataFrame([values], index=rows.index)
+
+
+def creative_row():
+    return pd.DataFrame({"video_id": [service.NEW_ID], "duration_s": [30.0]})
+
+
+def test_media_columns_match_training_and_rubric_stays_categorical():
+    model = FakeBundle()
+    row = creative_row()
+    media = {
+        "record": {
+            "cuts": 4.0,
+            "speech_language": "es",
+            "vlm_forca_hook_0a10": 7.0,
+            "vlm_cor_dominante": "azul",
+            "vlm_hook_primeiros_3s": "abre com o produto",
+        },
+        "vectors": {"frames": [1.0, 0.0, 0.0, 0.0]},
+    }
+    row = service.add_media(row, media, model)
+    assert row["speech_language"].iloc[0] == "outro"
+    assert isinstance(row["vlm_cor_dominante"].dtype, pd.CategoricalDtype)
+    assert row[["frames_pc0", "frames_pc1"]].notna().all(axis=None)
+    assert service.blocks_used(row, model) == [
+        "metadados",
+        "sinais",
+        "embeddings",
+        "extrator",
+    ]
+    assert service.attributes(media)["gancho nos 3 primeiros segundos"] == (
+        "abre com o produto"
+    )
+
+
+def test_drivers_sum_embedding_components_and_name_missing_video():
+    model = FakeBundle()
+    row = creative_row()
+    row = service.add_media(row, None, model)
+    row["title_pc0"] = 0.5
+    assert service.blocks_used(row, model) == ["metadados"]
+    drivers = {d.feature: d for d in service._drivers(model, row)}
+    # Sem vídeo: sinais e embeddings vazios somam num fator só (0,1 × 2 + 0,3 +
+    # 0,1), e a rubrica não pedida em outro.
+    assert drivers["__sem_video"].effect == pytest.approx(0.6)
+    assert drivers["__sem_rubrica"].effect == pytest.approx(0.3)
+    assert drivers["title_pc"].label == "tema do título"
+
+
+def test_unreadable_video_falls_back_to_metadata(monkeypatch):
+    def broken(*args):
+        raise RuntimeError("subprocesso de PyTorch: arquivo corrompido")
+
+    monkeypatch.setattr(service.worker, "media", broken)
+    media = service.creative_media(creative(creative="quebrado.mp4"))
+    assert media["record"] == {} and media["vectors"] == {}
+    assert "falha na extração do vídeo" in media["notes"][0]
+    row = service.add_media(creative_row(), media, FakeBundle())
+    assert service.blocks_used(row, FakeBundle()) == ["metadados"]
+
+
+def test_empty_field_of_a_real_video_is_not_missing_video():
+    model = FakeBundle()
+    media = {
+        "record": {"cuts": 2.0, "speech_language": None},  # vídeo sem fala
+        "vectors": {"frames": [1.0, 0.0, 0.0, 0.0]},
+    }
+    row = service.add_media(creative_row(), media, model)
+    groups = service._groups(model, row)
+    assert groups["speech_language"] == "__video_campos_vazios"
+    assert groups["cuts"] == "cuts"
+
+
+def test_boolean_attributes_read_as_yes_or_no():
+    media = {"record": {"vlm_tem_rosto": 1.0, "face_in_hook": 0.0, "cuts": 3.0}}
+    out = service.attributes(media)
+    assert out["tem rosto"] == "sim"
+    assert out["rosto nos 3 primeiros segundos"] == "não"
+    assert out["cortes de cena"] == 3.0
+
+
+def test_worker_reuses_the_media_model_for_text(monkeypatch):
+    from creative_predictor.features import text
+    from creative_predictor.predict import media
+
+    loads = []
+    monkeypatch.setattr(
+        text,
+        "load_encoder",
+        lambda: loads.append("texto") or (lambda t: np.ones((1, 2))),
+    )
+
+    class FakeMedia:
+        def __call__(self, **request):
+            return {"video_id": "v", "record": {}, "vectors": {}, "notes": []}
+
+        def encode_texts(self, texts):
+            return np.zeros((len(texts), 2))
+
+    monkeypatch.setattr(media, "CreativeMedia", FakeMedia)
+    request = {"video": "v.mp4", "sector": "moda", "title": "t", "use_vlm": False}
+    lines = [{"media": request}, {"texts": ["a"]}]
+    monkeypatch.setattr(
+        worker.sys, "stdin", io.StringIO("".join(json.dumps(x) + "\n" for x in lines))
+    )
+    replies = io.StringIO()
+    worker._serve(replies)
+    assert json.loads(replies.getvalue().splitlines()[1]) == {"vectors": [[0.0, 0.0]]}
+    assert loads == []  # o codificador só de texto nem foi carregado
 
 
 def no_base(monkeypatch):

@@ -27,8 +27,11 @@ mcp = FastMCP(
         "Prevê curtidas de YouTube Shorts de moda, beleza e automotivo antes da "
         "publicação, em relação ao histórico do canal, com intervalo de 80%, "
         "sinal de baixa confiança, fatores que mais pesaram e Shorts "
-        "comparáveis. Os números vêm de um modelo treinado; use "
-        "analyze_creatives quando quiser também a explicação em texto."
+        "comparáveis. Com o caminho do vídeo em `creative`, os atributos do "
+        "vídeo entram na previsão; `use_vlm` autoriza enviar frames e "
+        "transcrição à API do Google para a rubrica (só criativos públicos). "
+        "Os números vêm de um modelo treinado; use analyze_creatives quando "
+        "quiser também a explicação em texto."
     ),
 )
 

@@ -57,7 +57,7 @@ def test_channel_split_never_trains_on_held_out_channels(monkeypatch):
         def predict(self, frame):
             return np.zeros(len(frame))
 
-    def fake_fit(train_rows, valid, features, objective, num_rounds=None):
+    def fake_fit(train_rows, valid, features, objective, alpha=None, num_rounds=None):
         seen.append(set(train_rows["channel_id"]))
         return Model()
 

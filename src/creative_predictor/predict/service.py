@@ -9,6 +9,12 @@ O histórico do canal vem, nesta ordem: da base coletada (se o canal está
 nela), da lista informada na entrada ou da YouTube Data API (pelo id do
 canal, com `YOUTUBE_API_KEY`).
 
+Com o arquivo do vídeo, o subprocesso de `predict.worker` extrai os mesmos
+atributos da base (sinais do vídeo e do áudio, embeddings e, se pedida, a
+rubrica do extrator), e as colunas são montadas pelas mesmas funções do
+treino (`model.multimodal`). Sem vídeo, esses campos ficam vazios, como na
+maior parte da base de treino.
+
     from creative_predictor.predict.service import predict_creative
     prediction = predict_creative(CreativeInput(...))
 """
@@ -21,11 +27,14 @@ import pandas as pd
 
 from creative_predictor import config
 from creative_predictor.features import frames as fr
+from creative_predictor.features import history as hist
 from creative_predictor.features.history import HISTORY_GAP_DAYS
 from creative_predictor.features.local_time import channel_timezone
+from creative_predictor.features.rubric import RUBRICS
 from creative_predictor.features.target import MIN_HISTORY, likes_from_target
 from creative_predictor.features.text import cache_path
 from creative_predictor.model import dataset as ds
+from creative_predictor.model import multimodal as mm
 from creative_predictor.model.metrics import to_bands
 from creative_predictor.predict import bundle as bundle_mod
 from creative_predictor.predict import worker
@@ -74,6 +83,77 @@ FEATURE_LABELS = {
     "kind": "tipo de canal",
     "category_id": "categoria do YouTube",
     "definition": "resolução",
+    "brightness_mean": "brilho",
+    "contrast_mean": "contraste",
+    "saturation_mean": "saturação",
+    "colorfulness_mean": "colorido",
+    "face_frames_share": "frames com rosto",
+    "face_max_count": "rostos no mesmo frame",
+    "face_area_max": "tamanho do maior rosto",
+    "face_in_hook": "rosto nos 3 primeiros segundos",
+    "text_frames_share": "frames com texto na tela",
+    "text_area_mean": "área de texto na tela",
+    "text_words_mean": "palavras na tela",
+    "text_in_hook": "texto na tela nos 3 primeiros segundos",
+    "motion_mean": "movimento",
+    "motion_std": "variação do movimento",
+    "motion_hook": "movimento nos 3 primeiros segundos",
+    "cuts": "cortes de cena",
+    "cuts_per_10s": "cortes a cada 10 s",
+    "cuts_in_hook": "cortes nos 3 primeiros segundos",
+    "first_cut_s": "segundo do primeiro corte",
+    "audio_db_mean": "volume do áudio",
+    "audio_db_std": "variação do volume",
+    "silence_share": "fração de silêncio",
+    "speech_share": "fração com fala",
+    "speech_words": "palavras faladas",
+    "speech_words_per_second": "palavras faladas por segundo",
+    "speech_language": "idioma da fala",
+}
+# Componentes de PCA de um mesmo embedding viram um fator só (a soma das
+# contribuições): sozinhos, não têm leitura.
+EMBEDDING_GROUPS = {
+    "title_pc": "tema do título",
+    "frames_pc": "visual geral dos frames",
+    "audio_pc": "trilha de áudio",
+    "transcript_pc": "conteúdo da fala",
+}
+RUBRIC_LABELS = {
+    "hook_primeiros_3s": "gancho nos 3 primeiros segundos",
+    "forca_hook_0a10": "força do gancho (0–10)",
+    "tem_rosto": "tem rosto",
+    "close_up_produto": "close no produto",
+    "before_after_ou_transformacao": "antes e depois / transformação",
+    "try_on_ou_demonstracao": "prova ou demonstração",
+    "texto_na_tela": "texto na tela",
+    "densidade_texto_0a10": "densidade de texto (0–10)",
+    "ritmo_cortes_0a10": "ritmo de cortes (0–10)",
+    "energia_musica_0a10": "energia da música (0–10)",
+    "tom_narracao": "tom da narração",
+    "brilho_saturacao_0a10": "brilho e saturação (0–10)",
+    "cor_dominante": "cor dominante",
+    "estetica_geral_0a10": "estética geral (0–10)",
+    "clareza_beneficio_produto_0a10": "clareza do benefício do produto (0–10)",
+    "elementos_video_top5": "elementos do vídeo",
+    "elementos_audio_top5": "elementos do áudio",
+    "potencial_viral_0a10": "potencial viral segundo o extrator (0–10)",
+    "assunto_no_setor": "assunto do setor",
+    "swatch": "swatch",
+    "aplicacao_na_pele": "aplicação na pele",
+    "corpo_inteiro": "look de corpo inteiro",
+    "styling": "styling",
+    "close_do_carro": "close do carro",
+    "som_do_motor": "som do motor",
+    "pov_direcao": "ponto de vista de quem dirige",
+    "interior": "interior do carro",
+}
+FEATURE_LABELS |= {f"vlm_{k}": v for k, v in RUBRIC_LABELS.items()}
+# Campos 0/1: os booleanos da rubrica (de todos os setores) e os do gancho.
+YES_NO = {"face_in_hook", "text_in_hook"} | {
+    f"vlm_{name}"
+    for rubric in RUBRICS.values()
+    for name, info in rubric.model_fields.items()
+    if info.annotation is bool
 }
 
 
@@ -217,9 +297,79 @@ def planned_time(inp: CreativeInput) -> pd.Timestamp:
     return planned.tz_convert("UTC")
 
 
-def feature_row(inp: CreativeInput) -> tuple[pd.DataFrame, pd.DataFrame]:
+def creative_media(inp: CreativeInput) -> dict | None:
+    """Atributos do vídeo do criativo, extraídos no subprocesso (ou None).
+
+    Um vídeo que não pode ser lido (arquivo corrompido, sem trilha de vídeo)
+    não derruba a previsão: os campos do vídeo ficam vazios e o motivo vai
+    para `notes`.
+    """
+    if inp.creative is None:
+        return None
+    try:
+        return worker.media(str(inp.creative), inp.sector, inp.caption, inp.use_vlm)
+    except Exception as error:  # noqa: BLE001 (segue com metadados e texto)
+        return {
+            "record": {},
+            "vectors": {},
+            "notes": [f"falha na extração do vídeo, previsão sem ele: {error}"[:400]],
+        }
+
+
+def add_media(row: pd.DataFrame, media: dict | None, model) -> pd.DataFrame:
+    """Linha do criativo com as colunas do vídeo, como na base de treino."""
+    record = (media or {}).get("record", {})
+    values = {k: v for k, v in record.items() if k not in ("video_id", "transcript")}
+    values |= {f: np.nan for f in model.features if f not in row and f not in values}
+    row = pd.concat(
+        [
+            row.drop(columns=list(values), errors="ignore"),
+            pd.DataFrame([values], index=row.index),
+        ],
+        axis=1,
+    )
+    mm.media_columns(row)
+    vectors = {kind: {} for kind in model.media_pcas}
+    for kind, vector in (media or {}).get("vectors", {}).items():
+        if kind in vectors:
+            vectors[kind][NEW_ID] = np.asarray(vector, dtype=np.float32)
+    mm.add_media_embeddings(row, model.media_pcas, vectors)
+    return row
+
+
+def blocks_used(row: pd.DataFrame, model) -> list[str]:
+    """Blocos de features com algum valor na linha do criativo."""
+    present = row.iloc[0].notna()
+    return [
+        name
+        for name, features in model.blocks.items()
+        if name == "metadados" or present.reindex(features, fill_value=False).any()
+    ]
+
+
+def attributes(media: dict | None) -> dict[str, str | float | None]:
+    """Atributos extraídos do vídeo, com nomes legíveis (sim/não nos
+    campos booleanos)."""
+    record = (media or {}).get("record", {})
+    out = {}
+    for key, value in record.items():
+        label = FEATURE_LABELS.get(key)
+        if label is None or value is None:
+            continue
+        if isinstance(value, float):
+            if np.isnan(value):
+                continue
+            value = ("sim" if value else "não") if key in YES_NO else round(value, 2)
+        out[label] = value
+    return out
+
+
+def feature_row(
+    inp: CreativeInput, media: dict | None = None
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Features do criativo (montadas pelo mesmo código do treino) e o
-    histórico do canal usado para elas."""
+    histórico do canal usado para elas. `media` é a saída de
+    `creative_media`; sem ela, é calculada quando há arquivo de vídeo."""
     history, info = channel_frames(inp.channel, inp.sector)
     duration = inp.duration_s
     if duration is None and inp.creative is not None:
@@ -254,25 +404,71 @@ def feature_row(inp: CreativeInput) -> tuple[pd.DataFrame, pd.DataFrame]:
     table = ds.build_table(frame, info)
     row = table[table["video_id"] == NEW_ID].copy()
     row["age_days"] = ds.PREDICTION_AGE_DAYS
+    decline = hist.channel_decline(table)
+    row["channel_decline"] = decline.loc[row.index]
+    row["history_risk"] = hist.history_risk(table, decline).loc[row.index]
     model = _bundle()
     vector = worker.embed([inp.caption])
     pcs = model.title_pca.transform(vector)
     for i in range(pcs.shape[1]):
         row[f"title_pc{i}"] = pcs[0, i]
+    row = add_media(row, media if media is not None else creative_media(inp), model)
     return row, history
+
+
+# Campos vazios do vídeo também pesam (a LightGBM aprendeu o efeito da
+# ausência); somados, viram um fator que diz o que faltou.
+MISSING_GROUPS = {
+    "__sem_video": "vídeo não informado (sinais e embeddings vazios)",
+    "__video_campos_vazios": "medidas do vídeo sem valor (ex.: vídeo sem fala)",
+    "__sem_rubrica": "rubrica do extrator não pedida",
+    "__rubrica_outros_setores": "campos da rubrica de outros setores (vazios)",
+}
+
+
+def _groups(model, row: pd.DataFrame) -> dict[str, str]:
+    """Grupo de cada feature: embedding, campo vazio do vídeo ou ela mesma."""
+    values = row.iloc[0]
+    video = set(model.blocks.get("sinais", [])) | set(
+        model.blocks.get("embeddings", [])
+    )
+    rubric = model.blocks.get("extrator", [])
+    has_video = values.reindex(list(video)).notna().any()
+    has_rubric = values.reindex(rubric).notna().any()
+    groups = {}
+    for feature in model.features:
+        missing = pd.isna(values.get(feature))
+        if missing and feature in video:
+            # Vídeo extraído com um campo vazio (ex.: sem fala) não é "sem vídeo".
+            groups[feature] = "__video_campos_vazios" if has_video else "__sem_video"
+        elif missing and feature in rubric:
+            groups[feature] = (
+                "__rubrica_outros_setores" if has_rubric else "__sem_rubrica"
+            )
+        else:
+            prefix = next((p for p in EMBEDDING_GROUPS if feature.startswith(p)), None)
+            groups[feature] = prefix or feature
+    return groups
 
 
 def _drivers(model, row: pd.DataFrame) -> list[Driver]:
     contrib = model.contributions(row).iloc[0]
-    top = contrib.drop(labels=["age_days"], errors="ignore")
-    top = top.reindex(top.abs().sort_values(ascending=False).index)[:N_DRIVERS]
+    contrib = contrib.drop(labels=["age_days"], errors="ignore")
+    grouped = contrib.groupby(_groups(model, row)).sum()
+    top = grouped.reindex(grouped.abs().sort_values(ascending=False).index)
     drivers = []
-    for feature, effect in top.items():
-        value = row[feature].iloc[0]
-        label = FEATURE_LABELS.get(
-            feature, "tema do título" if feature.startswith("title_pc") else feature
-        )
-        shown = "" if feature.startswith("title_pc") else _fmt(value)
+    for feature, effect in top[:N_DRIVERS].items():
+        names = EMBEDDING_GROUPS | MISSING_GROUPS
+        if feature in names:
+            label, shown = names[feature], ""
+        else:
+            label = FEATURE_LABELS.get(feature, feature)
+            value = row[feature].iloc[0]
+            shown = (
+                ("sim" if value else "não")
+                if feature in YES_NO and pd.notna(value)
+                else _fmt(value)
+            )
         drivers.append(
             Driver(
                 feature=feature,
@@ -365,11 +561,23 @@ def reference_median(inp: CreativeInput, history: pd.DataFrame) -> tuple[float, 
     return 0.0, "falta de referência (canal sem histórico e sem base local)"
 
 
-def predict_creative(inp: CreativeInput, with_comparables: bool = True) -> Prediction:
-    """Prevê as curtidas de um criativo (com ~90 dias) antes da publicação."""
+def predict_creative(
+    inp: CreativeInput, with_comparables: bool = True, media: dict | None = None
+) -> Prediction:
+    """Prevê as curtidas de um criativo (com ~90 dias) antes da publicação.
+
+    `media` é a saída de `creative_media`, quando já calculada (o agente
+    extrai os atributos num nó próprio).
+    """
     model = _bundle()
-    row, history = feature_row(inp)
-    y, low, high = (float(v[0]) for v in model.predict(row))
+    if media is None:
+        media = creative_media(inp)
+    row, history = feature_row(inp, media)
+    risk = row["history_risk"].to_numpy(bool)
+    y, low, high = (float(v[0]) for v in model.predict(row, risk=risk))
+    # A largura "habitual" foi medida com a folga geral; a folga maior dos
+    # Shorts de risco já tem motivo próprio e não conta aqui.
+    _, usual_low, usual_high = (float(v[0]) for v in model.predict(row))
     median = row["history_median_likes"].iloc[0]
     reasons = []
     if pd.isna(median) or row["history_count"].iloc[0] < MIN_HISTORY:
@@ -377,10 +585,21 @@ def predict_creative(inp: CreativeInput, with_comparables: bool = True) -> Predi
             f"canal com menos de {MIN_HISTORY} Shorts estabilizados "
             f"(publicados há {HISTORY_GAP_DAYS}+ dias)"
         )
-    if high - low > model.wide_interval:
+    if usual_high - usual_low > model.wide_interval:
         reasons.append("intervalo de previsão mais largo que o habitual")
     if inp.channel.channel_id not in model.channels_in_training:
         reasons.append("canal fora da base de treino")
+    age = row["history_age_days"].iloc[0]
+    if pd.notna(age) and age > hist.STALE_HISTORY_DAYS:
+        reasons.append(
+            f"histórico desatualizado: os Shorts que servem de referência têm, "
+            f"em mediana, {age:.0f} dias (nesses casos o erro é maior)"
+        )
+    if row["channel_decline"].iloc[0]:
+        reasons.append(
+            "canal em queda: os Shorts recentes rendem bem abaixo da mediana do "
+            "canal e o ritmo de postagem caiu (nesses casos o erro é maior)"
+        )
     if pd.isna(median):
         median, source = reference_median(inp, history)
         reasons.append(f"curtidas absolutas estimadas pela {source}")
@@ -397,6 +616,11 @@ def predict_creative(inp: CreativeInput, with_comparables: bool = True) -> Predi
         top_drivers=_drivers(model, row),
         explanation=_template_explanation(y, low, high, reasons),
         comparables=comparables(inp) if with_comparables else [],
+        blocks_used=blocks_used(row, model),
+        attributes=attributes(media),
+        notes=(media or {}).get("notes", [])
+        if inp.creative is not None
+        else ["sem arquivo de vídeo: previsão com metadados e texto"],
     )
 
 

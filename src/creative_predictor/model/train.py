@@ -32,7 +32,7 @@ from sklearn.model_selection import GroupKFold
 from creative_predictor import config
 from creative_predictor.features.text import cache_path, embed_texts
 from creative_predictor.model import dataset as ds
-from creative_predictor.model.metrics import band_edges, evaluate
+from creative_predictor.model.metrics import band_edges, conformal_margin, evaluate
 
 EXPERIMENT = "metadados-e-texto"
 RESULTS_PATH = config.ROOT_DIR / "reports" / "metadata_text_results.csv"
@@ -164,7 +164,11 @@ def subscriber_baseline(split: Split, channels: pd.DataFrame) -> np.ndarray:
 
 
 def channel_split_predictions(
-    rows: pd.DataFrame, features: list[str], objective: str, num_rounds: int
+    rows: pd.DataFrame,
+    features: list[str],
+    objective: str,
+    num_rounds: int,
+    alpha: float | None = None,
 ) -> tuple[pd.DataFrame, np.ndarray]:
     """Previsões no teste para canais do Brasil nunca vistos no treino.
 
@@ -175,13 +179,29 @@ def channel_split_predictions(
     folds = GroupKFold(n_splits=5).split(br_channels, groups=br_channels)
     parts, preds = [], []
     for _, held_idx in folds:
-        held = set(br_channels[held_idx])
-        train = rows[(rows["split"] != "test") & ~rows["channel_id"].isin(held)]
-        test = rows[(rows["split"] == "test") & rows["channel_id"].isin(held)]
-        model = fit_lgbm(train, None, features, objective, num_rounds=num_rounds)
+        held = rows["channel_id"].isin(set(br_channels[held_idx]))
+        train = rows[(rows["split"] != "test") & ~held]
+        test = rows[(rows["split"] == "test") & held]
+        model = fit_lgbm(
+            train, None, features, objective, alpha=alpha, num_rounds=num_rounds
+        )
         parts.append(test)
         preds.append(model.predict(test[features]))
     return pd.concat(parts), np.concatenate(preds)
+
+
+def channel_split_interval(
+    rows: pd.DataFrame,
+    features: list[str],
+    rounds: tuple[int, int],
+) -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
+    """Limites P10 e P90 para canais do Brasil nunca vistos no treino."""
+    bounds = [
+        channel_split_predictions(rows, features, "quantile", n, alpha=a)
+        for a, n in zip(INTERVAL, rounds, strict=True)
+    ]
+    (held, low), (_, high) = bounds
+    return held, np.minimum(low, high), np.maximum(low, high)
 
 
 def log_run(
@@ -321,14 +341,53 @@ def run(text_embeddings: bool = False) -> pd.DataFrame:
         "objetivo": objective,
         "intervalo": f"P{int(INTERVAL[0] * 100)}-P{int(INTERVAL[1] * 100)}",
     }
+    low, high = np.minimum(low, high), np.maximum(low, high)
     interval = evaluate_test(
-        full_model.predict(split.test[full_features]),
-        low=np.minimum(low, high),
-        high=np.maximum(low, high),
+        full_model.predict(split.test[full_features]), low=low, high=high
     )
     # As métricas pontuais são as do último bloco; aqui só as do intervalo.
-    interval = {k: interval[k] for k in ("n", "coverage", "interval_width")}
-    results.append(log_run("lgbm_todos_intervalo", params, interval))
+    keys = ("n", "coverage", "interval_width")
+    results.append(
+        log_run("lgbm_todos_intervalo", params, {k: interval[k] for k in keys})
+    )
+
+    # Intervalo calibrado: a folga conformal vem da validação e é testada no
+    # período de teste, que o ajuste nunca viu.
+    v_low = low_model.predict(split.valid[full_features])
+    v_high = high_model.predict(split.valid[full_features])
+    margin = conformal_margin(
+        split.valid["target"],
+        np.minimum(v_low, v_high),
+        np.maximum(v_low, v_high),
+        coverage=INTERVAL[1] - INTERVAL[0],
+    )
+    calibrated = evaluate_test(
+        full_model.predict(split.test[full_features]),
+        low=low - margin,
+        high=high + margin,
+    )
+    results.append(
+        log_run(
+            "lgbm_todos_intervalo_conformal",
+            params | {"folga_conformal": round(margin, 4)},
+            {k: calibrated[k] for k in keys},
+        )
+    )
+
+    # Intervalo em canais nunca vistos, sem folga e com a folga calibrada nos
+    # canais do treino.
+    rounds = (low_model.best_iteration, high_model.best_iteration)
+    held, u_low, u_high = channel_split_interval(rows, full_features, rounds)
+    assert held.index.equals(test_rows.index)  # mesmos grupos, mesma ordem
+    for name, m in [("sem_folga", 0.0), ("com_folga", margin)]:
+        result = evaluate(test_rows, preds, edges, low=u_low - m, high=u_high + m)
+        results.append(
+            log_run(
+                f"lgbm_todos_intervalo_canais_nao_vistos_{name}",
+                params | {"avaliacao": "canais_nao_vistos", "folga": round(m, 4)},
+                {k: result[k] for k in keys},
+            )
+        )
 
     # Mesmas métricas no subconjunto que vai para a extração multimodal, para
     # comparar depois com os modelos que usam vídeo.

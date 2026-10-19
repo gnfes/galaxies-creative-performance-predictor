@@ -62,6 +62,15 @@ class CreativeInput(BaseModel):
         None, description="Duração em segundos; lida do vídeo quando houver"
     )
     creative_id: str = Field("criativo", description="Nome para identificar no ranking")
+    use_vlm: bool = Field(
+        False,
+        description=(
+            "Pede a rubrica do extrator (gemma-4-31b-it) pela API gratuita do "
+            "Google, que pode usar os dados para treino: só para criativos "
+            "públicos ou liberados. Sem ela, o vídeo entra pelos sinais e "
+            "embeddings, calculados localmente."
+        ),
+    )
 
 
 class Driver(BaseModel):
@@ -103,6 +112,18 @@ class Prediction(BaseModel):
     top_drivers: list[Driver] = []
     explanation: str = ""
     comparables: list[Comparable] = []
+    blocks_used: list[str] = Field(
+        default_factory=list,
+        description="Blocos de features presentes: metadados, sinais, "
+        "embeddings, extrator",
+    )
+    attributes: dict[str, str | float | None] = Field(
+        default_factory=dict,
+        description="Atributos extraídos do vídeo (sinais e rubrica), legíveis",
+    )
+    notes: list[str] = Field(
+        default_factory=list, description="Avisos sobre a extração do vídeo"
+    )
 
 
 class Ranking(BaseModel):
