@@ -1,5 +1,7 @@
 # Model card: previsão de curtidas de YouTube Shorts
 
+Português · [English](model.en.md)
+
 Ficha do modelo no formato de *model cards* (Mitchell et al., 2019, e o modelo do Hugging Face). A base está descrita em [`dataset.md`](dataset.md), e o sistema em volta do modelo, em [`architecture.md`](architecture.md).
 
 ## Detalhes
@@ -116,6 +118,6 @@ Contra o modelo de metadados e texto, com bootstrap sobre os canais (intervalo d
 ## Ressalvas e recomendações
 
 - O valor absoluto de curtidas é mal previsível; o uso recomendado é ordenar criativos do mesmo canal.
-- **Histórico desatualizado**: quando os Shorts de referência do canal são antigos, a previsão tende a sair alta. Esses casos são marcados como de baixa confiança.
+- **Histórico desatualizado**: quando os Shorts de referência do canal são antigos, o erro dobra (para cima ou para baixo; nos canais de demonstração, quase sempre para cima). Esses casos são marcados como de baixa confiança e ganham um intervalo mais largo.
 - **Campanhas de marca impulsionadas** geram os maiores erros, porque a mídia paga não aparece nos dados.
 - **Tempo de resposta**: com vídeo, a extração local leva ~30 s por criativo; com a rubrica pela API gratuita, mais 1 a 10 minutos.

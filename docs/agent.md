@@ -1,5 +1,7 @@
 # Agente em LangGraph
 
+Português · [English](agent.en.md)
+
 O agente recebe um ou mais criativos ainda não publicados e devolve, para cada um, a previsão de curtidas, o intervalo de 80%, o sinal de baixa confiança, os fatores que mais pesaram, Shorts comparáveis e uma explicação em linguagem natural; com mais de um criativo, devolve também o ranking.
 
 O número sempre vem do modelo treinado. O LLM só escreve a explicação a partir de valores já calculados e não pode alterá-los. Sem o LLM, sem o vídeo ou sem a rubrica do extrator, o agente continua funcionando, com menos informação.
@@ -104,7 +106,7 @@ Para cada criativo, um JSON montado pelo agente (`_summary`), só com valores j�
 - os atributos extraídos do vídeo (sinais e rubrica, com nomes legíveis);
 - até 3 comparáveis com o desempenho observado.
 
-A instrução pede português, no máximo 5 frases, sem listas, e proíbe inventar ou alterar números. Componentes de embedding não aparecem um a um: as contribuições de cada embedding são somadas num fator legível ("visual geral dos frames", "trilha de áudio", "conteúdo da fala", "tema do título"). Campos de vídeo vazios também somam num fator só ("vídeo não informado"), para a explicação não citar medidas que não existem.
+A instrução pede português, no máximo 5 frases, sem listas, e proíbe inventar ou alterar números. Componentes de embedding não aparecem um a um: as contribuições de cada embedding são somadas num fator legível ("visual geral dos frames", "trilha de áudio", "conteúdo da fala", "tema do título"). Campos de vídeo vazios também somam num fator só ("vídeo não informado", ou "medidas do vídeo sem valor" quando o vídeo existe mas, por exemplo, não tem fala), para a explicação não citar medidas que não existem.
 
 ## Entrada e saída
 

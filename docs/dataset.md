@@ -1,5 +1,7 @@
 # Ficha da base: YouTube Shorts de moda, beleza e automotivo
 
+Português · [English](dataset.en.md)
+
 Base usada para treinar e avaliar o modelo que prevê, antes da publicação, quantas curtidas um
 YouTube Short vai receber em relação ao histórico do próprio canal. A análise exploratória completa
 está em [`notebooks/01_eda.ipynb`](../notebooks/01_eda.ipynb), que lê as tabelas de `data/processed/`

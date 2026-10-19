@@ -1,5 +1,7 @@
 # galaxies-creative-performance-predictor
 
+Português · [English](README.en.md)
+
 Agente que prevê, antes da publicação, quantas curtidas um YouTube Short de moda, beleza ou automotivo vai receber em relação ao histórico do próprio canal, com intervalo, sinal de baixa confiança, ranking entre criativos e explicação. Projeto Inteli Academy × Galaxies.
 
 O número vem de um modelo treinado offline sobre Shorts reais; o LLM só orquestra e explica, nunca chuta o número. A ferramenta é exposta como função Python e como servidor MCP, para a persona sintética da Galaxies consumir.
@@ -28,7 +30,7 @@ Ficha completa em [`docs/dataset.md`](docs/dataset.md); análise exploratória e
 
 ## Arquitetura
 
-Documentação completa: [`docs/architecture.md`](docs/architecture.md) (contexto, contêineres, pipeline, invariantes e decisões) e [`docs/agent.md`](docs/agent.md) (o grafo do agente, nó a nó).
+Documentação completa: [`docs/architecture.md`](docs/architecture.md) (contexto, contêineres, pipeline, invariantes e decisões), [`docs/agent.md`](docs/agent.md) (o grafo do agente, nó a nó) e o model card, [`docs/model.md`](docs/model.md).
 
 ```mermaid
 flowchart LR

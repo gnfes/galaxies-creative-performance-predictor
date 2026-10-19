@@ -1,5 +1,7 @@
 # Arquitetura
 
+Português · [English](architecture.en.md)
+
 Como o sistema está organizado, por que está assim e onde fica cada parte. Para o agente em detalhe, ver [`agent.md`](agent.md); para a base, [`dataset.md`](dataset.md).
 
 ## Visão geral
@@ -102,7 +104,7 @@ Pacote `creative_predictor` (em `src/`):
   - `media`: download com yt-dlp, ordem embaralhada e pausas contra bloqueio.
 - `features`:
   - `target`: o alvo relativo ao canal;
-  - `history`: histórico do canal só com posts de 30+ dias;
+  - `history`: histórico do canal só com posts de 30+ dias, e as regras de histórico desatualizado e de canal em queda;
   - `local_time`: fuso do canal;
   - `text`: contagens e embedding do título;
   - `frames`, `transcribe`, `visual`, `media_embed`: as etapas da extração;
@@ -113,14 +115,16 @@ Pacote `creative_predictor` (em `src/`):
   - `dataset`: tabela de features e splits;
   - `metrics`: métricas e calibração conformal;
   - `train`: baselines e experimentos de metadados e texto;
-  - `multimodal`: ganho por bloco e as funções que preparam as colunas do vídeo, usadas também na previsão.
+  - `multimodal`: ganho por bloco e as funções que preparam as colunas do vídeo, usadas também na previsão;
+  - `confidence`: validação das regras de baixa confiança e da folga de risco;
+  - `llm_baseline`: a comparação com um LLM sem modelo.
 - `predict`:
   - `schemas`: contrato;
   - `bundle`: modelo salvo;
   - `service`: a função de previsão;
   - `media`: extração do vídeo de um criativo novo;
   - `worker`: o subprocesso PyTorch.
-- `agent.graph`: o agente.
+- `agent.graph`: o agente; `agent.faithfulness`: a checagem automática das explicações.
 - `mcp_server`: o servidor MCP.
 - `demo`: o teste "de-para" com canais fora do treino.
 
@@ -151,7 +155,7 @@ Regras que o código mantém e que não aparecem lendo um arquivo só:
 | MCP | Persona da Galaxies e o sistema | Ferramentas com entrada e saída Pydantic |
 | Subprocesso | `predict.service` e `predict.worker` | Uma linha JSON por pedido e por resposta |
 | APIs externas | Sistema e YouTube / Google | HTTP com cache, limite de tokens e novas tentativas em 429, 500 e 503 |
-| Modelo salvo | Pipeline offline e previsão | `data/models/predictor.joblib` (LightGBMs, PCAs, faixas, folga conformal, lista de features) |
+| Modelo salvo | Pipeline offline e previsão | `data/models/predictor.joblib` (LightGBMs, PCAs, faixas, folgas conformais, lista de features) |
 
 ## Preocupações transversais
 
