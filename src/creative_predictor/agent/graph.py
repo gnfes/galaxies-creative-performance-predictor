@@ -2,7 +2,11 @@
 
 Fluxo fixo, um nó por ferramenta:
 
-    preparar → prever → comparáveis → explicar → ordenar (se houver mais de um)
+    extrair → prever → comparáveis → explicar → ordenar (se houver mais de um)
+
+O nó de extração roda, para cada criativo com vídeo, os mesmos passos da base
+de treino (frames, transcrição, sinais, embeddings e, se autorizada, a
+rubrica do extrator); a previsão usa esses atributos.
 
 O número sempre vem do modelo treinado (`predict.service`). O LLM local só
 escreve a explicação em linguagem natural, a partir dos fatores, do
@@ -15,6 +19,10 @@ Ollama).
 
     from creative_predictor.agent.graph import analyze
     result = analyze([CreativeInput(...), CreativeInput(...)])
+
+O diagrama do grafo (Mermaid, gerado do próprio código) sai com:
+
+    uv run python -m creative_predictor.agent.graph --mermaid
 """
 
 import json
@@ -23,7 +31,6 @@ from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from creative_predictor.features import frames as fr
 from creative_predictor.predict import service
 from creative_predictor.predict.schemas import CreativeInput, Prediction, Ranking
 
@@ -64,6 +71,15 @@ READABLE_VALUES = {
     "n_tags",
     "days_since_prev",
     "posts_prev_30d",
+    "face_frames_share",
+    "face_in_hook",
+    "text_frames_share",
+    "text_in_hook",
+    "cuts",
+    "cuts_per_10s",
+    "first_cut_s",
+    "speech_words_per_second",
+    "speech_language",
 }
 WEEKDAYS = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"]
 
@@ -71,11 +87,13 @@ WEEKDAYS = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "doming
 def _driver_value(driver) -> str | None:
     if driver.feature == "local_weekday" and driver.value:
         return WEEKDAYS[int(float(driver.value))]
-    return driver.value if driver.feature in READABLE_VALUES else None
+    readable = driver.feature in READABLE_VALUES or driver.feature.startswith("vlm_")
+    return driver.value if readable else None
 
 
 class AgentState(TypedDict, total=False):
     inputs: list[CreativeInput]
+    media: list[dict | None]
     predictions: list[Prediction]
     ranking: Ranking | None
 
@@ -117,6 +135,7 @@ def _summary(prediction: Prediction) -> dict:
             {"fator": d.label, "valor": _driver_value(d), "efeito": d.direction}
             for d in prediction.top_drivers
         ],
+        "atributos_do_video": prediction.attributes,
         "comparaveis": [
             {"titulo": c.title, "vezes_a_mediana_do_seu_canal": c.relative_to_channel}
             for c in prediction.comparables[:3]
@@ -124,23 +143,16 @@ def _summary(prediction: Prediction) -> dict:
     }
 
 
-def prepare(state: AgentState) -> AgentState:
-    """Extração de atributos do arquivo do criativo (por ora, a duração)."""
-    inputs = []
-    for item in state["inputs"]:
-        if item.creative is not None and item.duration_s is None:
-            item = item.model_copy(
-                update={"duration_s": fr.probe_duration(item.creative, stream="v:0")}
-            )
-        inputs.append(item)
-    return {"inputs": inputs}
+def extract(state: AgentState) -> AgentState:
+    """Atributos do vídeo de cada criativo (None quando não há arquivo)."""
+    return {"media": [service.creative_media(item) for item in state["inputs"]]}
 
 
 def predict(state: AgentState) -> AgentState:
     return {
         "predictions": [
-            service.predict_creative(item, with_comparables=False)
-            for item in state["inputs"]
+            service.predict_creative(item, with_comparables=False, media=media)
+            for item, media in zip(state["inputs"], state["media"], strict=True)
         ]
     }
 
@@ -187,13 +199,13 @@ def _route(state: AgentState) -> str:
 
 def build_graph():
     graph = StateGraph(AgentState)
-    graph.add_node("prepare", prepare)
+    graph.add_node("extract", extract)
     graph.add_node("predict", predict)
     graph.add_node("comparables", comparables)
     graph.add_node("explain", explain)
     graph.add_node("rank", rank)
-    graph.add_edge(START, "prepare")
-    graph.add_edge("prepare", "predict")
+    graph.add_edge(START, "extract")
+    graph.add_edge("extract", "predict")
     graph.add_edge("predict", "comparables")
     graph.add_edge("comparables", "explain")
     graph.add_conditional_edges("explain", _route, ["rank", END])
@@ -207,3 +219,17 @@ def analyze(inputs: list[CreativeInput]) -> Ranking:
     if state.get("ranking") is not None:
         return state["ranking"]
     return Ranking(predictions=state["predictions"])
+
+
+def mermaid() -> str:
+    """Diagrama Mermaid do grafo compilado (o mesmo de `docs/agent.md`)."""
+    return build_graph().get_graph().draw_mermaid()
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Agente de previsão de criativos")
+    parser.add_argument("--mermaid", action="store_true", help="imprime o grafo")
+    if parser.parse_args().mermaid:
+        print(mermaid())
