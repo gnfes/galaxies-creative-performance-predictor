@@ -56,6 +56,7 @@ def test_history_features_columns_and_duration_ratio():
         target=[0.5, -0.5, 1.0],
         history_median_likes=[np.nan, 9.0, 9.0],
         duration_s=[20, 40, 90],
+        likes=[10, 20, 30],
     )
     channels = pd.DataFrame(
         {
@@ -68,6 +69,9 @@ def test_history_features_columns_and_duration_ratio():
     assert out.loc[2, "duration_vs_usual"] == 90 / 30
     assert out.loc[1, "log_history_median_likes"] == pytest.approx(np.log(10))
     assert out["channel_age_days"].tolist() == [31, 71, 111]
+    # Idade do histórico: referência do dia 80 = Shorts dos dias 0 e 40.
+    assert np.isnan(out.loc[0, "history_age_days"])
+    assert out.loc[1:, "history_age_days"].tolist() == [40, 60]
 
 
 def test_text_stats():
@@ -108,3 +112,39 @@ def test_embed_texts_computes_only_missing_ids(tmp_path):
     assert calls == [["xx", "yyy"], ["z"]]
     assert again.index.tolist() == ["b", "c", "a"]
     assert again["e0"].tolist() == [3, 1, 2]
+
+
+def channel_with_new_short(targets, gaps):
+    """Shorts antigos (alvo conhecido) e, por último, o Short a prever.
+
+    `gaps[i]` é quantos dias antes do Short a prever saiu o Short i.
+    """
+    planned = pd.Timestamp("2026-10-20", tz="UTC")
+    return pd.DataFrame(
+        {
+            "channel_id": "UCa",
+            "published_at": [planned - pd.Timedelta(days=d) for d in gaps] + [planned],
+            "target": [*targets, np.nan],
+            "history_age_days": 0.0,
+        }
+    )
+
+
+def test_channel_decline_needs_weak_recent_posts_and_slower_rhythm():
+    # 10 Shorts a cada 10 dias até 130 dias atrás, depois 3 a cada 40 dias.
+    gaps = [220, 210, 200, 190, 180, 170, 160, 150, 140, 130, 120, 80, 40]
+    weak = [0.0] * 8 + [-1.0] * 5  # os 5 estabilizados mais recentes vão mal
+    decline = history.channel_decline(channel_with_new_short(weak, gaps))
+    assert decline.iloc[-1]
+    # Mesma queda nas curtidas, mas o ritmo se manteve (um Short a cada 10 dias).
+    steady = list(range(130, 0, -10))
+    assert not history.channel_decline(channel_with_new_short(weak, steady)).iloc[-1]
+    # Ritmo caiu, mas os Shorts recentes vão bem.
+    good = history.channel_decline(channel_with_new_short([0.0] * 13, gaps))
+    assert not good.iloc[-1]
+
+
+def test_history_risk_combines_stale_history_and_decline():
+    frame = channel_with_new_short([0.0] * 3, [300, 200, 100])
+    frame["history_age_days"] = [0, 0, 0, history.STALE_HISTORY_DAYS + 1]
+    assert history.history_risk(frame).tolist() == [False, False, False, True]

@@ -17,9 +17,12 @@ A volta para curtidas absolutas é `(mediana + 1) * exp(y) - 1`.
 import numpy as np
 import pandas as pd
 
-from creative_predictor.features.history import HISTORY_GAP_DAYS, prior_stats
+from creative_predictor.features.history import (
+    HISTORY_GAP_DAYS,
+    HISTORY_POSTS,
+    prior_stats,
+)
 
-HISTORY_POSTS = 20
 MIN_HISTORY = 10  # abaixo disso a mediana do canal é instável e não há alvo
 
 
