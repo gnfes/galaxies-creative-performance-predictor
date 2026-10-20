@@ -1,0 +1,27 @@
+# Configuração da tela de demonstração (`python -m creative_predictor.app`).
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"
+
+# Tema inspirado na identidade visual da Galaxies (site e canais): fundo cinza
+# claro, cartões brancos, azul #0065FF de destaque e a fonte DM Sans.
+[theme]
+base = "light"
+primaryColor = "#0065FF"
+backgroundColor = "#F9FAFB"
+secondaryBackgroundColor = "#F3F4F6"
+textColor = "#1F2937"
+linkColor = "#0065FF"
+blueColor = "#0065FF"
+violetColor = "#8B5CF6"
+borderColor = "#E5E7EB"
+showWidgetBorder = true
+font = "DM Sans:https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400..700&display=swap, sans-serif"
+headingFont = "DM Sans:https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400..700&display=swap, sans-serif"
+headingFontWeights = 600
+baseRadius = "0.5rem"
+buttonRadius = "0.5625rem"
+dataframeHeaderBackgroundColor = "#F3F4F6"
+chartCategoricalColors = ["#0065FF", "#8B5CF6", "#22B8CF", "#111827", "#9CA3AF"]

@@ -50,6 +50,7 @@ flowchart LR
 - `creative_predictor.predict`: saved model, Pydantic contract and the prediction function.
 - `creative_predictor.agent`: LangGraph agent (graph diagram: `uv run python -m creative_predictor.agent.graph --mermaid`).
 - `creative_predictor.mcp_server`: MCP server.
+- `creative_predictor.app`: Streamlit demo screen.
 
 The new creative enters as one more row in the channel's history and goes through the same functions that built the training dataset, so the prediction features are the same as in training (checked on real Shorts).
 
@@ -100,6 +101,13 @@ MCP server (stdio or HTTP):
 ```bash
 uv run python -m creative_predictor.mcp_server
 uv run python -m creative_predictor.mcp_server --http 8000
+```
+
+Demo screen (Streamlit, optional `app` dependency): predict a creative, compare creatives, see predicted × real on channels outside training, and browse the results. It runs locally and opens in the browser:
+
+```bash
+uv sync --extra app
+uv run --extra app python -m creative_predictor.app
 ```
 
 Demo with channels outside training (report in `reports/demo.md`):
