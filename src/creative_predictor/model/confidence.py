@@ -17,6 +17,8 @@ Uso:
     uv run python -m creative_predictor.model.confidence
 """
 
+import argparse
+
 import numpy as np
 import pandas as pd
 
@@ -166,8 +168,13 @@ def run() -> pd.DataFrame:
                 for k in (
                     "n",
                     "mae_log",
+                    "mape",
+                    "median_ape",
+                    "spearman_likes",
+                    "spearman_target",
                     "spearman_within_channel",
                     "pairwise_accuracy",
+                    "band_f1",
                 )
             }
             | group_errors(split.test, pred, split.test["history_age_days"] > threshold)
@@ -176,6 +183,7 @@ def run() -> pd.DataFrame:
 
 
 def main() -> None:
+    argparse.ArgumentParser(description=__doc__.split("\n")[0]).parse_args()
     results = run()
     RESULTS_PATH.parent.mkdir(parents=True, exist_ok=True)
     results.to_csv(RESULTS_PATH, index=False)
