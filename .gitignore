@@ -8,19 +8,19 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
+/build/
+/develop-eggs/
+/dist/
+/downloads/
+/eggs/
+/.eggs/
+/lib/
+/lib64/
+/parts/
+/sdist/
+/var/
+/wheels/
+/share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
@@ -199,7 +199,7 @@ cython_debug/
 #   that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
 #   and can be added to the global gitignore or merged into this file. However, if you prefer, 
 #   you could uncomment the following to ignore the entire vscode folder
-# .vscode/
+/.vscode/
 # Temporary file for partial code execution
 tempCodeRunnerFile.py
 
@@ -216,3 +216,18 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- Projeto ---
+# Memória de sessão da IA (local, nunca versionada)
+/CLAUDE.md
+# Material de contexto local (brief, notas, referências)
+/context/
+# Dados brutos, intermediários e processados (pesados; mídia do YouTube não é redistribuída)
+/data/
+# Registro de experimentos do MLflow (local)
+/mlruns/
+/mlartifacts/
+/mlflow.db
+# Cookies exportados para o yt-dlp
+# (sem âncora: cookies não devem ser versionados em nenhum nível)
+cookies*.txt

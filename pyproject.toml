@@ -1,0 +1,58 @@
+[project]
+name = "creative-predictor"
+version = "1.0.0"
+description = "Agente preditivo de performance de criativos em YouTube Shorts (moda, beleza e automotivo) — Inteli Academy x Galaxies"
+authors = [
+    { name = "Guilherme Nunes Fernandes e Silva", email = "gnfsemp@gmail.com" }
+]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "easyocr>=1.7.2",
+    "faster-whisper>=1.2.1",
+    "fastmcp>=4.1.0",
+    "google-api-python-client>=2.200.0",
+    "google-genai>=2.25.0",
+    "joblib>=1.6.0",
+    "langchain-ollama>=1.1.0",
+    "langgraph>=1.2.15",
+    "lightgbm>=4.7.0",
+    "mlflow>=3.17.1",
+    "numpy>=2.5.3",
+    "ollama>=0.6.2",
+    "opencv-python-headless>=5.0.0.93",
+    "pandas>=3.0.6",
+    "pyarrow>=25.0.1",
+    "pydantic>=2.13.5",
+    "python-dotenv>=1.2.3",
+    "pyyaml>=6.0.3",
+    "scikit-learn>=1.9.1",
+    "scipy>=1.18.1",
+    "sentence-transformers>=6.1.0",
+    "tenacity>=9.1.4",
+    "tqdm>=4.70.1",
+    "yt-dlp>=2026.8.19",
+]
+
+[project.optional-dependencies]
+app = [
+    "streamlit>=1.66.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.19,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.uv]
+required-version = ">=0.12.19,<0.14"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.3.0",
+    "matplotlib>=3.11.2",
+    "nbconvert>=7.17.2",
+    "pytest>=9.1.1",
+    "ruff>=0.16.9",
+]
