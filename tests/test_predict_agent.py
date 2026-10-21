@@ -415,7 +415,7 @@ def test_api_error_reason_never_carries_the_key(monkeypatch):
     no_base(monkeypatch)
 
     def quota(channel_id):
-        uri = "https://youtube.googleapis.com/youtube/v3/videos?key=SEGREDO&alt=json"
+        uri = "https://youtube.googleapis.com/youtube/v3/videos?key=CHAVE_FALSA_DO_TESTE&alt=json"
         raise HttpError(httplib2.Response({"status": 403}), b"{}", uri=uri)
 
     monkeypatch.setattr(service, "_history_from_api", quota)
@@ -423,7 +423,7 @@ def test_api_error_reason_never_carries_the_key(monkeypatch):
         schemas.ChannelInfo(channel_id="UCx"), "moda"
     ).warning
     assert "403" in warning
-    assert "SEGREDO" not in warning
+    assert "CHAVE_FALSA_DO_TESTE" not in warning
 
 
 class PredictBundle(FakeBundle):
