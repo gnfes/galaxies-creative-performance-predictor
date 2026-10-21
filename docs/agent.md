@@ -118,7 +118,7 @@ Validadas com Pydantic (`predict.schemas`). Entrada, por criativo:
 | `planned_datetime` | sim | Data e hora previstas; sem fuso, vale o horário local do canal |
 | `channel` | sim | `channel_id` (histórico da base ou da API do YouTube) ou `history` informado |
 | `sector` | sim | `moda`, `beleza` ou `automotivo` |
-| `creative` | não | Caminho do vídeo na máquina que roda a previsão ou URL `http(s)`, inclusive links do YouTube (baixados antes da extração) |
+| `creative` | não | Caminho do vídeo na máquina que roda a previsão ou URL `http(s)`, inclusive links do YouTube (baixados antes da extração); uma imagem também serve, tratada como vídeo de um quadro (não avaliada: o treino só teve vídeos) |
 | `use_vlm` | não (falso) | Autoriza enviar frames e transcrição à API do Google para a rubrica |
 | `description`, `tags`, `category_id`, `duration_s`, `creative_id` | não | Metadados planejados e um nome para o ranking |
 

@@ -158,6 +158,23 @@ uv run python -m creative_predictor.predict.bundle                     # modelo 
 - **Agente**: LangGraph com o `gemma4:12b` local (configurável por `CREATIVE_PREDICTOR_LLM`).
 - **Registro de experimentos**: MLflow local (`mlflow.db` e `mlartifacts/` na raiz, fora do git, recriados ao rodar os experimentos) e resumos versionados em `reports/`.
 
+### Escolhas em relação às ferramentas sugeridas no brief
+
+| Sugestão | O que o projeto usa | Por quê |
+|---|---|---|
+| MediaPipe (rostos) | YuNet, do próprio OpenCV | MediaPipe e PySceneDetect trazem cada um outra distribuição do OpenCV, e as três instalam o mesmo módulo `cv2`; ficou só o OpenCV que o EasyOCR já usa |
+| PySceneDetect (cortes de cena) | Filtro `scdet` do ffmpeg | Mesmo conflito; o ffmpeg já é requisito para frames e áudio |
+| Optical flow (movimento) | Diferença média entre frames consecutivos, a 2 frames por segundo, no vídeo e no gancho | Mais barato para ~9,7 mil vídeos; mede a intensidade da mudança na imagem, sem separar o movimento da câmera do movimento em cena |
+| YOLO (produto e pessoa) | Pessoa: rostos pelo YuNet. Produto em destaque, demonstração e antes/depois: campos da rubrica do modelo de visão | As classes genéricas de um detector não dizem se o produto é o foco do vídeo, que é o que a rubrica pergunta; a rubrica inteira já acrescenta pouco sobre sinais e embeddings |
+| CLIP ou SigLIP (frames), CLAP (áudio), sentence-transformers (texto) | EmbeddingGemma 2 para frames, áudio, transcrição e título | Um único modelo aberto com imagem, áudio e texto no mesmo espaço |
+| Clusterizar os descritores da rubrica (K-Means) | Os descritores de texto livre (`elementos_video_top5`, `elementos_audio_top5`, gancho) são extraídos e guardados, mas não viram features | O ganho da rubrica inteira foi pequeno; fica para a evolução |
+| SMTPD e MicroLens como referência | Não usados; toda a base foi coletada pela API do YouTube | O diferencial do SMTPD é a popularidade nos primeiros 30 dias, fora do escopo (previsão antes da publicação); o MicroLens serve para embeddings de vídeo completo, uma extensão. A base própria tem o recorte do projeto: Shorts de moda, beleza e automotivo, com o Brasil no centro |
+| Contagens em log | Contagens na escala original | A LightGBM usa cortes por limiar, que não mudam com transformações monotônicas |
+| `channel_stats` (inscritos) na entrada | Histórico de curtidas do canal (`channel_id` ou `history`) | Os inscritos da API são os da data da coleta, não os da publicação; entram só na baseline |
+| Tools escolhidas pelo LLM | Fluxo fixo no grafo (extração, previsão, comparáveis, explicação e ranking) | Toda previsão passa pelas mesmas etapas, e o número vem sempre do modelo |
+
+O criativo pode chegar como vídeo, como imagem (tratada como um vídeo de um quadro, sem áudio) ou só como texto (legenda e metadados). O modelo foi treinado e avaliado só com vídeos; a previsão para uma imagem não foi avaliada.
+
 ## Metodologia
 
 - **Hipótese**: o conteúdo do criativo (texto, vídeo e áudio) melhora a ordenação entre Shorts do mesmo canal além do que o histórico do canal explica. Hipótese nula: um modelo só com o histórico do canal ordena tão bem quanto. Teste: o mesmo modelo com e sem cada bloco de conteúdo, no mesmo subconjunto do teste temporal, com intervalo de confiança por bootstrap sobre os canais.
@@ -242,6 +259,8 @@ O LLM erra mais que a mediana do canal e ordena Shorts do mesmo canal no nível 
 
 - Extrator local: rodar o `gemma-4-31b-it` (pesos abertos) na máquina da Galaxies para criativos sigilosos, conferindo que as respostas batem com as da API usada no treino.
 - Testar a thumbnail como entrada visual, ao lado dos frames.
+- Clusterizar os descritores de texto livre da rubrica e testá-los como features.
+- Movimento por optical flow, para separar o movimento da câmera do movimento em cena.
 - Corrigir o viés de canais com histórico desatualizado (por exemplo, uma mediana ponderada pelo tempo).
 - Extrair vídeo de toda a base, não só da amostra, para o modelo aprender mais com o conteúdo.
 - Comparáveis por embedding visual, não só pelo título (busca sobre os vetores já calculados).
