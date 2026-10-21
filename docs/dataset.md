@@ -56,16 +56,16 @@ usar outro Python instalado na máquina.
 | Canais de demonstração | 13 | 215 | 215 |
 
 - 60 dos 87 canais são do Brasil (47 criadores e 13 marcas); os 27 globais são 5 criadores e 22
-  marcas, de EUA, Reino Unido, Alemanha, França, Itália, Espanha e Suécia (5 sem país declarado
-  na API).
+  marcas, de EUA, Reino Unido, Alemanha, França, Itália e Espanha (5 sem país declarado na
+  API).
 - 29.916 Shorts da janela têm alvo (106 têm curtidas ocultas e 165 não têm histórico suficiente).
 - **Amostra multimodal**: até 120 Shorts por canal (com curtidas visíveis e até 3 minutos),
   espalhados no tempo ao longo da janela, que seguem para download, extração de frames, transcrição e atributos por VLM. Espalhar no tempo
   garante que todos os canais cubram o mesmo período no split temporal.
 - **Extração (corte em 19/10/2026)**: dos 9.769 Shorts da amostra (9.554 de treino e teste e 215
-  de demonstração), 9.665 foram baixados e processados (frames, transcrição, sinais do vídeo e do
-  áudio, embeddings), e 9.640 têm a rubrica do `gemma-4-31b-it`. Outros 92 saíram do ar ou ficaram
-  privados depois da coleta, e 12 seguiram bloqueados pelo YouTube. A amostra cobre cerca de 32%
+  de demonstração), 9.662 foram baixados e processados (frames, transcrição, sinais do vídeo e do
+  áudio, embeddings), e 9.648 têm a rubrica do `gemma-4-31b-it`. Outros 92 saíram do ar ou ficaram
+  privados depois da coleta, e 15 seguiram bloqueados pelo YouTube. A amostra cobre cerca de 32%
   das linhas de treino; nas demais, os campos do vídeo ficam vazios.
 - **Canais de demonstração**: 13 canais fora do treino, com poucos Shorts na janela (Garnier, Quem
   Disse Berenice, Camila Gaio, H&M, Toyota do Brasil, Jeep, Chevrolet, Nissan, Reserva, Hering,
@@ -137,8 +137,8 @@ do mesmo canal publicados pelo menos 30 dias antes do Short (mínimo de 10). Imp
   começa a tocar ou repete. A razão curtidas/view da base cai de ~0,06 para ~0,035 nesse mês, então
   views de antes e de depois não são comparáveis. Views de canais de marca também incluem mídia paga.
 - Distribuição: mediana ≈ 0 e desvio-padrão ≈ 1,1. Quantis P25 = −0,57 (0,57× a mediana do canal),
-  P75 = 0,51 (1,66×) e P95 = 1,92 (6,8×), que são a proposta para as faixas abaixo / na média /
-  acima / viral.
+  P75 = 0,51 (1,66×) e P95 = 1,92 (6,8×) na base inteira. As faixas abaixo / na média / acima /
+  viral usam os mesmos quantis calculados só no treino (no modelo salvo, 0,56×, 1,70× e 7,4×).
 
 ## O que a base não representa
 

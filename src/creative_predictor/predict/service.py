@@ -21,6 +21,7 @@ maior parte da base de treino.
 
 import functools
 from datetime import UTC, datetime, timedelta
+from typing import NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -190,16 +191,40 @@ def _history_from_api(channel_id: str) -> pd.DataFrame:
     return pd.DataFrame([parse_video(item) for item in fetch_videos(client, ids[:300])])
 
 
-def channel_frames(
-    channel: ChannelInfo, sector: str
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+class ChannelFrames(NamedTuple):
+    """Histórico do canal, a linha do canal e, se o histórico não pôde ser
+    buscado, o motivo (vira motivo de baixa confiança na previsão)."""
+
+    history: pd.DataFrame
+    info: pd.DataFrame
+    warning: str | None = None
+
+
+def _api_failure(error: Exception) -> str:
+    """Motivo curto para a falha da API do YouTube. Nunca usa o texto de um
+    `HttpError`, que traz a URL do pedido com a chave da API."""
+    status = getattr(getattr(error, "resp", None), "status", None)
+    if status:
+        detail = f"erro {status} da API"
+    elif isinstance(error, RuntimeError):  # chave ausente (texto do `config`)
+        detail = str(error).rstrip(".")[:200]
+    else:
+        detail = f"falha de rede: {type(error).__name__}"
+    return (
+        f"histórico do canal indisponível na API do YouTube ({detail}); "
+        "previsão sem o histórico do canal"
+    )
+
+
+def channel_frames(channel: ChannelInfo, sector: str) -> ChannelFrames:
     """Histórico de Shorts do canal e a linha do canal, no formato da base."""
     shorts, channels = _base()
     channel_id = channel.channel_id or "__canal__"
     if channel.channel_id and channel.channel_id in set(shorts["channel_id"]):
         history = shorts[shorts["channel_id"] == channel.channel_id]
         info = channels[channels["channel_id"] == channel.channel_id]
-        return history, info
+        return ChannelFrames(history, info)
+    warning = None
     if channel.history:
         history = pd.DataFrame(
             {
@@ -217,7 +242,13 @@ def channel_frames(
             }
         )
     elif channel.channel_id:
-        history = _history_from_api(channel.channel_id)
+        from googleapiclient.errors import HttpError
+
+        try:
+            history = _history_from_api(channel.channel_id)
+        except (RuntimeError, HttpError, OSError) as error:
+            history = pd.DataFrame(columns=["video_id", "published_at", "likes"])
+            warning = _api_failure(error)
     else:
         history = pd.DataFrame(columns=["video_id", "published_at", "likes"])
     history = history.assign(channel_id=channel_id)
@@ -240,7 +271,7 @@ def channel_frames(
             }
         ]
     )
-    return history, info
+    return ChannelFrames(history, info, warning)
 
 
 def _complete(frame: pd.DataFrame, defaults: dict) -> pd.DataFrame:
@@ -366,11 +397,12 @@ def attributes(media: dict | None) -> dict[str, str | float | None]:
 
 def feature_row(
     inp: CreativeInput, media: dict | None = None
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Features do criativo (montadas pelo mesmo código do treino) e o
-    histórico do canal usado para elas. `media` é a saída de
-    `creative_media`; sem ela, é calculada quando há arquivo de vídeo."""
-    history, info = channel_frames(inp.channel, inp.sector)
+) -> tuple[pd.DataFrame, pd.DataFrame, str | None]:
+    """Features do criativo (montadas pelo mesmo código do treino), o
+    histórico do canal usado para elas e o aviso, se o histórico não pôde ser
+    buscado. `media` é a saída de `creative_media`; sem ela, é calculada
+    quando há arquivo de vídeo."""
+    history, info, warning = channel_frames(inp.channel, inp.sector)
     duration = inp.duration_s
     if duration is None and inp.creative is not None:
         duration = fr.probe_duration(inp.creative, stream="v:0")
@@ -413,7 +445,7 @@ def feature_row(
     for i in range(pcs.shape[1]):
         row[f"title_pc{i}"] = pcs[0, i]
     row = add_media(row, media if media is not None else creative_media(inp), model)
-    return row, history
+    return row, history, warning
 
 
 # Campos vazios do vídeo também pesam (a LightGBM aprendeu o efeito da
@@ -543,10 +575,13 @@ def _sector_medians() -> dict[str, float]:
 
 
 def reference_median(inp: CreativeInput, history: pd.DataFrame) -> tuple[float, str]:
-    """Mediana de curtidas quando o canal não tem histórico estabilizado.
+    """Mediana de curtidas quando o canal não tem histórico estabilizado, e o
+    motivo de baixa confiança que explica de onde ela veio.
 
     Usa todos os Shorts anteriores do canal (mesmo os com menos de 30 dias,
     cujas curtidas ainda crescem) e, sem nenhum, a mediana do setor na base.
+    Sem nada disso, não há referência: o número absoluto sai zerado e só o
+    desempenho relativo vale.
     """
     planned = planned_time(inp)
     if len(history) and "likes" in history:
@@ -554,11 +589,16 @@ def reference_median(inp: CreativeInput, history: pd.DataFrame) -> tuple[float, 
         if len(before):
             return float(
                 before.astype(float).median()
-            ), "mediana de todos os Shorts do canal"
+            ), "curtidas absolutas estimadas pela mediana de todos os Shorts do canal"
     sectors = _sector_medians()
     if inp.sector in sectors:
-        return float(sectors[inp.sector]), f"mediana do setor de {inp.sector}"
-    return 0.0, "falta de referência (canal sem histórico e sem base local)"
+        return float(
+            sectors[inp.sector]
+        ), f"curtidas absolutas estimadas pela mediana do setor de {inp.sector}"
+    return 0.0, (
+        "sem referência de curtidas (canal sem histórico e sem base local): "
+        "o número absoluto não vale, só o desempenho relativo ao canal"
+    )
 
 
 def predict_creative(
@@ -572,7 +612,7 @@ def predict_creative(
     model = _bundle()
     if media is None:
         media = creative_media(inp)
-    row, history = feature_row(inp, media)
+    row, history, warning = feature_row(inp, media)
     risk = row["history_risk"].to_numpy(bool)
     y, low, high = (float(v[0]) for v in model.predict(row, risk=risk))
     # A largura "habitual" foi medida com a folga geral; a folga maior dos
@@ -600,9 +640,11 @@ def predict_creative(
             "canal em queda: os Shorts recentes rendem bem abaixo da mediana do "
             "canal e o ritmo de postagem caiu (nesses casos o erro é maior)"
         )
+    if warning:
+        reasons.append(warning)
     if pd.isna(median):
-        median, source = reference_median(inp, history)
-        reasons.append(f"curtidas absolutas estimadas pela {source}")
+        median, reason = reference_median(inp, history)
+        reasons.append(reason)
     return Prediction(
         creative_id=inp.creative_id,
         predicted_metric=round(float(likes_from_target(y, median)), 1),

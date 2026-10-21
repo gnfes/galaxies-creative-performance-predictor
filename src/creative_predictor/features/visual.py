@@ -22,6 +22,7 @@ import numpy as np
 
 from creative_predictor import config
 from creative_predictor.features.frames import HOOK_TIMES
+from creative_predictor.files import download_verified
 
 VISUAL_DIR = config.INTERIM_DIR / "visual"
 YUNET_PATH = config.DATA_DIR / "models" / "face_detection_yunet_2023mar.onnx"
@@ -59,17 +60,10 @@ def image_stats(image: np.ndarray) -> dict[str, float]:
 def ensure_yunet(path: Path = YUNET_PATH, url: str = YUNET_URL) -> Path:
     """Baixa o modelo YuNet (repositório oficial do OpenCV) se ainda não existe."""
     if not path.is_file():
-        import hashlib
-        import urllib.request
-
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".tmp")
-        urllib.request.urlretrieve(url, tmp)
-        digest = hashlib.sha256(tmp.read_bytes()).hexdigest()
-        if digest != YUNET_SHA256:
-            tmp.unlink()
-            raise RuntimeError(f"modelo YuNet com hash inesperado: {digest}")
-        tmp.replace(path)
+        try:
+            download_verified(url, path, YUNET_SHA256)
+        except ValueError as error:
+            raise ValueError(f"modelo YuNet: {error}") from None
     return path
 
 

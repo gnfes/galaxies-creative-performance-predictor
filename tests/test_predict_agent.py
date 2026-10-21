@@ -69,12 +69,12 @@ def test_reference_median_falls_back_to_recent_posts_then_sector(monkeypatch):
     value, source = service.reference_median(creative(), history)
     assert value == 20  # só os posts antes da data planejada
     assert "canal" in source
-    assert service.reference_median(creative(), history.iloc[:0]) == (
-        77.0,
-        "mediana do setor de moda",
-    )
+    value, reason = service.reference_median(creative(), history.iloc[:0])
+    assert (value, "mediana do setor de moda" in reason) == (77.0, True)
     monkeypatch.setattr(service, "_sector_medians", dict)
-    assert service.reference_median(creative(), history.iloc[:0])[0] == 0.0
+    value, reason = service.reference_median(creative(), history.iloc[:0])
+    assert value == 0.0
+    assert "não vale" in reason
 
 
 class FakeLLM:
@@ -355,7 +355,8 @@ def test_channel_history_given_by_hand(monkeypatch):
             {"published_at": "2026-09-01T12:00:00Z", "likes": None},
         ]
     )
-    history, info = service.channel_frames(channel, "moda")
+    history, info, warning = service.channel_frames(channel, "moda")
+    assert warning is None
     assert history["duration_s"].tolist()[0] == 35
     assert pd.isna(history["likes"].iloc[1])
     assert info.loc[0, "sector"] == "moda"
@@ -385,11 +386,77 @@ def test_channel_history_from_api(monkeypatch):
     monkeypatch.setattr(
         "creative_predictor.collect.youtube.YouTubeClient", lambda **k: None
     )
-    history, info = service.channel_frames(
+    history, info, _ = service.channel_frames(
         schemas.ChannelInfo(channel_id="UCnovo"), "beleza"
     )
     assert history["likes"].tolist() == [12]
     assert info.loc[0, "channel_id"] == "UCnovo"
+
+
+def test_channel_history_api_failure_becomes_a_warning(monkeypatch):
+    no_base(monkeypatch)
+
+    def missing_key(channel_id):
+        raise RuntimeError("Variável YOUTUBE_API_KEY ausente")
+
+    monkeypatch.setattr(service, "_history_from_api", missing_key)
+    history, info, warning = service.channel_frames(
+        schemas.ChannelInfo(channel_id="UCnovo"), "moda"
+    )
+    assert history.empty
+    assert info.loc[0, "channel_id"] == "UCnovo"
+    assert "YOUTUBE_API_KEY" in warning
+
+
+def test_api_error_reason_never_carries_the_key(monkeypatch):
+    import httplib2
+    from googleapiclient.errors import HttpError
+
+    no_base(monkeypatch)
+
+    def quota(channel_id):
+        uri = "https://youtube.googleapis.com/youtube/v3/videos?key=CHAVE_FALSA_DO_TESTE&alt=json"
+        raise HttpError(httplib2.Response({"status": 403}), b"{}", uri=uri)
+
+    monkeypatch.setattr(service, "_history_from_api", quota)
+    warning = service.channel_frames(
+        schemas.ChannelInfo(channel_id="UCx"), "moda"
+    ).warning
+    assert "403" in warning
+    assert "CHAVE_FALSA_DO_TESTE" not in warning
+
+
+class PredictBundle(FakeBundle):
+    """FakeBundle com o que `predict_creative` consulta."""
+
+    wide_interval = 10.0
+    channels_in_training: frozenset = frozenset()
+    band_edges = np.array([-0.5, 0.5, 2.0])
+
+    def predict(self, rows, risk=None):
+        return np.array([0.1]), np.array([-0.5]), np.array([0.8])
+
+
+def test_prediction_turns_api_failure_into_low_confidence(monkeypatch):
+    history = pd.DataFrame(columns=["video_id", "published_at", "likes"])
+    warning = "histórico do canal indisponível na API do YouTube (x)"
+    row = creative_row().assign(
+        title_pc0=0.0,
+        history_risk=False,
+        history_median_likes=np.nan,
+        history_count=0,
+        history_age_days=np.nan,
+        channel_decline=False,
+    )
+    monkeypatch.setattr(
+        service, "feature_row", lambda inp, media: (row, history, warning)
+    )
+    monkeypatch.setattr(service, "_bundle", PredictBundle)
+    monkeypatch.setattr(service, "_sector_medians", dict)
+    out = service.predict_creative(creative(), with_comparables=False, media={})
+    assert out.confidence_flag
+    assert warning in out.confidence_reasons
+    assert any("não vale" in r for r in out.confidence_reasons)
 
 
 def test_naive_planned_time_uses_channel_timezone():

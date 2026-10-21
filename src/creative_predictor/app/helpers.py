@@ -5,12 +5,12 @@ de `reports/` e montam o "de-para" dos canais fora do treino. Ficam aqui, e
 não em `app.main`, para poderem ser testadas sem o Streamlit instalado.
 """
 
-import hashlib
 from pathlib import Path
 
 import pandas as pd
 
 from creative_predictor import config
+from creative_predictor.files import sha256, write_atomic
 from creative_predictor.predict.schemas import Prediction, Ranking
 
 UPLOADS_DIR = config.INTERIM_DIR / "app_uploads"
@@ -75,12 +75,9 @@ def channel_options(channels: pd.DataFrame) -> pd.DataFrame:
 def save_upload(data: bytes, name: str, root: Path = UPLOADS_DIR) -> Path:
     """Grava o vídeo enviado pela tela, com nome pelo conteúdo (sem repetir)."""
     suffix = Path(name).suffix.lower() or ".mp4"
-    path = root / f"{hashlib.sha256(data).hexdigest()[:16]}{suffix}"
+    path = root / f"{sha256(data)[:16]}{suffix}"
     if not path.is_file():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".tmp")
-        tmp.write_bytes(data)
-        tmp.replace(path)
+        write_atomic(path, lambda tmp: tmp.write_bytes(data))
     return path
 
 

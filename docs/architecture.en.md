@@ -97,6 +97,7 @@ The extraction stages run in parallel and follow the download (`--follow`). They
 Package `creative_predictor` (in `src/`):
 
 - `config`: project root, data folders and keys from `.env`.
+- `files`: atomic writes and hash-checked downloads (published model and YuNet).
 - `collect`:
   - `youtube`: API client with cache and quota counter;
   - `channels`: curation and validation, exporting `configs/channels.yaml`;
@@ -176,9 +177,9 @@ A short record of the decisions that shape the system (context, decision and con
 | Likes, not views | Shorts views changed definition on 03/31/2025 and include paid media on brand channels | Channels that hide likes are left out |
 | History only with posts older than 30 days | The collected likes are today's; recent posts are still growing | The prediction sees the channel as it would be at publishing time |
 | A single model with every block, empty fields allowed | Only part of the dataset has extracted video; a creative may come without video or without rubric | The same model serves all three cases; the gain of each block is measured separately |
-| Extractor `gemma-4-31b-it` | Best agreement with the reference in the 28-Short benchmark, and open weights | The dataset uses the free API; confidential creatives can use the same model locally |
+| Extractor `gemma-4-31b-it` | Best agreement with the reference in the 28-Short benchmark, and open weights | The dataset and the prediction use the free API; with open weights, confidential creatives could use the same model locally (not implemented yet) |
 | EmbeddingGemma 2 for title, frames, audio and transcript | An open model with text, image and audio in the same space | One dependency instead of separate CLIP/SigLIP, CLAP and sentence-transformers |
-| Quantile interval + conformal calibration | LightGBM quantiles covered 75% instead of 80% | 79% coverage on the test set and 78% on unseen channels |
+| Quantile interval + conformal calibration | LightGBM quantiles covered 75% instead of 80% | 79% coverage on the test set and 78% on unseen channels (metadata and text model) |
 | History risk flag with its own margin | On channels with stale history (reference older than 180 days) or declining, the error is much larger | These Shorts are flagged as low confidence and get an interval calibrated on them only (group coverage from 72% to 78%); thresholds were chosen on validation |
 | Fixed flow in the agent | The brief requires the number to come from the model and the evidence to be inspectable | Every prediction goes through the same tools; the LLM only explains |
 | Subprocess for PyTorch | `libomp` conflict between LightGBM and PyTorch on macOS | One more process, with models loaded once |

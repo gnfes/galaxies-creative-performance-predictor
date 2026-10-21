@@ -113,7 +113,7 @@ def test_ensure_yunet_rejects_wrong_hash(tmp_path):
     source = tmp_path / "fake.onnx"
     source.write_bytes(b"not a model")
     target = tmp_path / "models" / "yunet.onnx"
-    with pytest.raises(RuntimeError, match="hash inesperado"):
+    with pytest.raises(ValueError, match="hash"):
         visual.ensure_yunet(target, url=source.as_uri())
     assert not target.exists()
     assert not target.with_suffix(".tmp").exists()

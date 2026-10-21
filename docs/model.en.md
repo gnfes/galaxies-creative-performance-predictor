@@ -12,6 +12,7 @@ Model card following the *model cards* format (Mitchell et al., 2019, and the Hu
 - **Architecture**:
   - three LightGBMs: the prediction with Huber loss and the P10 and P90 quantiles for the interval;
   - a conformal margin (CQR) calibrated on validation;
+  - bands from the P25, P75 and P95 quantiles of the training target (0.56×, 1.70× and 7.4× the channel median).
   - a 16-component PCA per embedding type.
 - **Features**: 148, in four blocks:
   - **metadata and text** (50): channel history, format, local time, text counts and title embedding;
@@ -64,7 +65,7 @@ Model card following the *model cards* format (Mitchell et al., 2019, and the Hu
 - **Dataset**: Shorts published from 10/15/2024 to 08/28/2026, collected through the YouTube Data API on 10/13/2026.
 - **Training**: up to February 2026; **validation**: March to May 2026.
 - **The saved model** is refit on every Short with a target.
-- **Multimodal part**: up to 120 Shorts per channel, spread over time. 9,665 have signals and embeddings and 9,640 have the rubric, about 32% of the training rows. In the rest, these fields are empty.
+- **Multimodal part**: up to 120 Shorts per channel, spread over time. 9,662 have signals and embeddings and 9,648 have the rubric, about 32% of the training rows. In the rest, these fields are empty.
 
 ## Results
 
@@ -79,18 +80,20 @@ Model card following the *model cards* format (Mitchell et al., 2019, and the Hu
 | + rubric (final model) | 0.672 | 0.392 | 0.648 |
 | Final model, without the rubric at prediction time | 0.680 | 0.358 | 0.646 |
 
-Against the metadata and text model, with a bootstrap over channels (90% interval), the final model gains +0.025 in pairwise accuracy (+0.005 to +0.048) and +0.080 in within-channel Spearman (+0.045 to +0.116). On the full test set (2,821 Shorts, only a third with video): MAE 0.653, within-channel Spearman 0.375, pairwise 0.620. On unseen channels (metadata and text model): MAE 0.689, pairwise 0.593.
+Against the metadata and text model, with a bootstrap over channels (90% interval), the final model gains +0.025 in pairwise accuracy (+0.005 to +0.048) and +0.080 in within-channel Spearman (+0.045 to +0.116). On the full test set (2,821 Shorts, only a third with video): MAE 0.653, MAPE 0.93 (median percentage error of 48%), global Spearman 0.879 (0.862 with the channel median alone, since it mostly measures channel size), within-channel Spearman 0.375, pairwise 0.620 and band F1 0.267. On unseen channels (metadata and text model): MAE 0.689, pairwise 0.593.
 
 **Model × LLM without a model**, on the same 198 test Shorts. The LLM received frames, title, duration, transcript, the median and the channel's latest Shorts:
 
-| Model | MAE log | Within-channel Spearman | Pairwise |
-|---|---:|---:|---:|
-| Baseline: channel median | 0.776 | n/a | 0.500 |
-| LLM `gemma4:12b` without a model | 1.127 | 0.014 | 0.504 |
-| Trained model | 0.701 | 0.422 | 0.668 |
+| Model | MAE log | Median % error | Within-channel Spearman | Pairwise |
+|---|---:|---:|---:|---:|
+| Baseline: channel median | 0.776 | 57% | n/a | 0.500 |
+| LLM `gemma4:12b` without a model | 1.127 | 78% | 0.014 | 0.504 |
+| Trained model | 0.701 | 50% | 0.422 | 0.668 |
+
+The LLM's MAPE is not informative (some guesses come out absurdly high); that is why the table shows the median percentage error.
 
 **80% interval**:
-- 79.7% coverage on the test set (75.8% without calibration) and 78.2% on unseen channels;
+- 79.7% coverage on the test set (75.8% without calibration) and 78.2% on unseen channels (metadata and text model);
 - on risky Shorts (12% of the test set), 78.0% with their own margin, against 71.7% with the single margin;
 - by sector: automotive 76.9%, beauty 82.1%, fashion 80.1%.
 
@@ -108,10 +111,12 @@ Against the metadata and text model, with a bootstrap over channels (90% interva
 - fashion has pairwise 0.657 and beauty 0.592;
 - creators 0.644 and brands 0.559.
 
+**Bands**: the prediction leans toward the center. Of the 2,821 test Shorts, none was predicted as viral (68 were) and only 216 as below normal (802 were).
+
 ## Ethical considerations
 
 - **Data**: public videos and aggregated metrics only. No personal data about viewers. The repository does not redistribute media or API responses.
-- **Confidentiality of creatives**: the rubric sends frames and transcript to Google's free API, whose terms allow the data to be used for training. That is why it is only requested with `use_vlm=True`; for confidential creatives, the prediction uses only what runs locally, or the same Gemma 4 31B running on one's own machine.
+- **Confidentiality of creatives**: the rubric sends frames and transcript to Google's free API, whose terms allow the data to be used for training. That is why it is only requested with `use_vlm=True`; for confidential creatives, the prediction uses only what runs locally. `gemma-4-31b-it` has open weights and could run on one's own machine, but the current code only calls it through the API.
 - **Sample bias**: large and active channels are better represented; small channels and brands that post little err more.
 - **Risk of use**: a low prediction may discourage content the audience would like. The interval and the low-confidence flag exist so the decision takes the uncertainty into account.
 

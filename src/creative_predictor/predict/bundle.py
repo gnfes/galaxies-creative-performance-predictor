@@ -27,9 +27,7 @@ Uso:
 """
 
 import argparse
-import hashlib
 import urllib.error
-import urllib.request
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -42,6 +40,7 @@ from sklearn.decomposition import PCA
 
 from creative_predictor import config
 from creative_predictor.features.history import history_risk
+from creative_predictor.files import download_verified, sha256, write_atomic
 from creative_predictor.model import dataset as ds
 from creative_predictor.model import multimodal as mm
 from creative_predictor.model import train as tr
@@ -151,17 +150,8 @@ def train_bundle() -> ModelBundle:
     )
 
 
-def _write_atomic(path: Path, write) -> Path:
-    """Grava num arquivo temporário e troca no fim: nunca fica meio arquivo."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    write(tmp)
-    tmp.replace(path)
-    return path
-
-
 def save(bundle: ModelBundle, path: Path = BUNDLE_PATH) -> Path:
-    return _write_atomic(path, lambda tmp: joblib.dump(bundle, tmp))
+    return write_atomic(path, lambda tmp: joblib.dump(bundle, tmp))
 
 
 def load(path: Path = BUNDLE_PATH) -> ModelBundle:
@@ -174,14 +164,10 @@ def load(path: Path = BUNDLE_PATH) -> ModelBundle:
     return joblib.load(path)
 
 
-def _sha256(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
-
-
 def download(
     path: Path = BUNDLE_PATH,
     url: str = MODEL_URL,
-    sha256: str = MODEL_SHA256,
+    expected_sha256: str = MODEL_SHA256,
     force: bool = False,
 ) -> Path:
     """Baixa o modelo publicado e só o grava se o hash conferir.
@@ -190,21 +176,14 @@ def download(
     o substitui sem `force`.
     """
     if path.is_file():
-        if _sha256(path.read_bytes()) == sha256:
+        if sha256(path.read_bytes()) == expected_sha256:
             return path
         if not force:
             raise FileExistsError(
                 f"{path} já existe e não é o modelo publicado (talvez retreinado); "
                 "use --force para substituí-lo"
             )
-    with urllib.request.urlopen(url, timeout=60) as response:
-        data = response.read()
-    digest = _sha256(data)
-    if digest != sha256:
-        raise ValueError(
-            f"hash do modelo baixado não confere (esperado {sha256}, veio {digest})"
-        )
-    return _write_atomic(path, lambda tmp: tmp.write_bytes(data))
+    return download_verified(url, path, expected_sha256)
 
 
 def main() -> None:

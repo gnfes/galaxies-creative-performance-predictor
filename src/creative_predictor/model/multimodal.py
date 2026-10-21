@@ -17,6 +17,8 @@ Uso:
     uv run python -m creative_predictor.model.multimodal
 """
 
+import argparse
+
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import PCA
@@ -237,6 +239,7 @@ def run() -> pd.DataFrame:
 
 
 def main() -> None:
+    argparse.ArgumentParser(description=__doc__.split("\n")[0]).parse_args()
     results = run()
     RESULTS_PATH.parent.mkdir(parents=True, exist_ok=True)
     results.to_csv(RESULTS_PATH, index=False)
