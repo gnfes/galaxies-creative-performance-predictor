@@ -1,6 +1,6 @@
 [project]
 name = "creative-predictor"
-version = "0.1.0"
+version = "1.0.0"
 description = "Agente preditivo de performance de criativos em YouTube Shorts (moda, beleza e automotivo) — Inteli Academy x Galaxies"
 authors = [
     { name = "Guilherme Nunes Fernandes e Silva", email = "gnfsemp@gmail.com" }

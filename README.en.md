@@ -67,6 +67,15 @@ Requirements:
 - [Ollama](https://ollama.com) with `gemma4:12b`, for the text explanation (optional: without it, the explanation uses a default text).
 - Keys in `.env` (template in `.env.example`): `YOUTUBE_API_KEY` to collect data and fetch the history of new channels; `GEMINI_API_KEY` only to redo the attribute extraction.
 
+Installation and trained model:
+
+```bash
+uv sync
+uv run python -m creative_predictor.predict.bundle --download
+```
+
+The model (2.8 MB) is attached to the [GitHub release](https://github.com/gnfes/galaxies-creative-performance-predictor/releases); the command checks its hash before saving it to `data/models/`. The collected dataset is not in the repository: without it, each channel's history comes from the YouTube API (`YOUTUBE_API_KEY`), and similar Shorts and the demo with channels outside training are unavailable. On the first prediction, EmbeddingGemma 2 is downloaded from Hugging Face (about 3 GB).
+
 Predicting a creative (Python):
 
 ```python

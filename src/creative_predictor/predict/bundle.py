@@ -17,10 +17,19 @@ A configuração (features, objetivo, rodadas) vem da validação temporal, como
 nos experimentos; o modelo salvo é retreinado com todos os Shorts com alvo,
 para usar também os meses mais recentes.
 
+O modelo publicado fica anexado à release do GitHub; `--download` baixa
+essa versão e confere o hash antes de gravar (o arquivo é um pickle, então só
+o arquivo publicado deve ser carregado).
+
 Uso:
-    uv run python -m creative_predictor.predict.bundle
+    uv run python -m creative_predictor.predict.bundle --download  # modelo publicado
+    uv run python -m creative_predictor.predict.bundle             # treina de novo
 """
 
+import argparse
+import hashlib
+import urllib.error
+import urllib.request
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -41,6 +50,12 @@ from creative_predictor.model.metrics import band_edges, conformal_margin
 BUNDLE_PATH = config.DATA_DIR / "models" / "predictor.joblib"
 OBJECTIVE = "huber"  # escolhido na validação (ver reports/metadata_text_results.csv)
 WIDE_INTERVAL_QUANTILE = 0.8  # intervalo mais largo que 80% da validação = incerto
+# Modelo publicado: anexado à release do GitHub, com o hash conferido no download.
+MODEL_URL = (
+    "https://github.com/gnfes/galaxies-creative-performance-predictor/"
+    "releases/download/v1.0.0/predictor.joblib"
+)
+MODEL_SHA256 = "7859296cfe4e0d5860090c2aab36bff09c8d18a8cdcf7757dcadf534695a07b1"
 
 
 @dataclass
@@ -136,24 +151,84 @@ def train_bundle() -> ModelBundle:
     )
 
 
-def save(bundle: ModelBundle, path: Path = BUNDLE_PATH) -> Path:
+def _write_atomic(path: Path, write) -> Path:
+    """Grava num arquivo temporário e troca no fim: nunca fica meio arquivo."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".tmp")
-    joblib.dump(bundle, tmp)
+    write(tmp)
     tmp.replace(path)
     return path
+
+
+def save(bundle: ModelBundle, path: Path = BUNDLE_PATH) -> Path:
+    return _write_atomic(path, lambda tmp: joblib.dump(bundle, tmp))
 
 
 def load(path: Path = BUNDLE_PATH) -> ModelBundle:
     if not path.is_file():
         raise FileNotFoundError(
-            f"{path} não existe: treine com "
-            "`uv run python -m creative_predictor.predict.bundle`"
+            f"{path} não existe: baixe o modelo publicado com "
+            "`uv run python -m creative_predictor.predict.bundle --download` "
+            "ou treine de novo com `uv run python -m creative_predictor.predict.bundle`"
         )
     return joblib.load(path)
 
 
+def _sha256(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def download(
+    path: Path = BUNDLE_PATH,
+    url: str = MODEL_URL,
+    sha256: str = MODEL_SHA256,
+    force: bool = False,
+) -> Path:
+    """Baixa o modelo publicado e só o grava se o hash conferir.
+
+    Se já houver um modelo diferente do publicado (retreinado localmente), não
+    o substitui sem `force`.
+    """
+    if path.is_file():
+        if _sha256(path.read_bytes()) == sha256:
+            return path
+        if not force:
+            raise FileExistsError(
+                f"{path} já existe e não é o modelo publicado (talvez retreinado); "
+                "use --force para substituí-lo"
+            )
+    with urllib.request.urlopen(url, timeout=60) as response:
+        data = response.read()
+    digest = _sha256(data)
+    if digest != sha256:
+        raise ValueError(
+            f"hash do modelo baixado não confere (esperado {sha256}, veio {digest})"
+        )
+    return _write_atomic(path, lambda tmp: tmp.write_bytes(data))
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument(
+        "--download",
+        action="store_true",
+        help="baixa o modelo publicado na release em vez de treinar",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="com --download, substitui um modelo local diferente do publicado",
+    )
+    args = parser.parse_args()
+    if args.download:
+        try:
+            path = download(force=args.force)
+        except urllib.error.URLError as error:
+            raise SystemExit(f"Não foi possível baixar {MODEL_URL}: {error}") from None
+        except (FileExistsError, ValueError) as error:
+            raise SystemExit(str(error)) from None
+        print(f"Modelo publicado em {path}")
+        return
     # Pelo nome do módulo (e não por `__main__`), para o pickle guardar a
     # classe como `creative_predictor.predict.bundle.ModelBundle`.
     from creative_predictor.predict import bundle as module  # noqa: PLW0406
