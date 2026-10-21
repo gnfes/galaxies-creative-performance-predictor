@@ -158,6 +158,23 @@ uv run python -m creative_predictor.predict.bundle                     # saved m
 - **Agent**: LangGraph with the local `gemma4:12b` (configurable through `CREATIVE_PREDICTOR_LLM`).
 - **Experiment tracking**: local MLflow (`mlflow.db` and `mlartifacts/` at the root, outside git, recreated when the experiments run) and versioned summaries in `reports/`.
 
+### Choices relative to the tools suggested in the brief
+
+| Suggestion | What the project uses | Why |
+|---|---|---|
+| MediaPipe (faces) | YuNet, from OpenCV itself | MediaPipe and PySceneDetect each bring another OpenCV distribution, and all three install the same `cv2` module; only the OpenCV that EasyOCR already uses stayed |
+| PySceneDetect (scene cuts) | ffmpeg's `scdet` filter | Same conflict; ffmpeg is already required for frames and audio |
+| Optical flow (motion) | Mean difference between consecutive frames, at 2 frames per second, over the video and the hook | Cheaper for ~9.7k videos; it measures how much the image changes, without separating camera motion from motion in the scene |
+| YOLO (product and person) | Person: faces through YuNet. Featured product, demonstration and before/after: fields of the vision model rubric | A detector's generic classes do not say whether the product is the focus of the video, which is what the rubric asks; the whole rubric already adds little on top of signals and embeddings |
+| CLIP or SigLIP (frames), CLAP (audio), sentence-transformers (text) | EmbeddingGemma 2 for frames, audio, transcript and title | A single open model with image, audio and text in the same space |
+| Clustering the rubric descriptors (K-Means) | The free-text descriptors (`elementos_video_top5`, `elementos_audio_top5`, hook) are extracted and stored, but do not become features | The whole rubric's gain was small; left for the next steps |
+| SMTPD and MicroLens as reference | Not used; the whole dataset was collected through the YouTube API | SMTPD's strength is popularity in the first 30 days, out of scope (prediction before publication); MicroLens is meant for full-video embeddings, an extension. The own dataset has the project's scope: fashion, beauty and automotive Shorts, centered on Brazil |
+| Counts in log | Counts on the original scale | LightGBM splits on thresholds, which do not change under monotonic transformations |
+| `channel_stats` (subscribers) as input | The channel's like history (`channel_id` or `history`) | Subscribers from the API are those of the collection date, not of publication; they only enter the baseline |
+| Tools chosen by the LLM | A fixed flow in the graph (extraction, prediction, comparables, explanation and ranking) | Every prediction goes through the same steps, and the number always comes from the model |
+
+The creative can arrive as a video, as an image (treated as a one-frame video, without audio) or as text only (caption and metadata). The model was trained and evaluated on videos only; the prediction for an image was not evaluated.
+
 ## Methodology
 
 - **Hypothesis**: the creative's content (text, video and audio) improves the ranking between Shorts of the same channel beyond what the channel's history explains. Null hypothesis: a model with only the channel history ranks just as well. Test: the same model with and without each content block, on the same subset of the temporal test set, with a bootstrap confidence interval over channels.
@@ -242,6 +259,8 @@ The LLM errs more than the channel median and ranks Shorts of the same channel a
 
 - Local extractor: run `gemma-4-31b-it` (open weights) on Galaxies' machines for confidential creatives, checking that the answers match those of the API used in training.
 - Test the thumbnail as a visual input, next to the frames.
+- Cluster the rubric's free-text descriptors and test them as features.
+- Motion through optical flow, to separate camera motion from motion in the scene.
 - Correct the bias of channels with stale history (for example, a time-weighted median).
 - Extract video for the whole dataset, not only the sample, so the model learns more from content.
 - Comparables by visual embedding, not only by title (search over the vectors already computed).
