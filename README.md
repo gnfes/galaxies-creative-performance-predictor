@@ -119,6 +119,8 @@ uv sync --extra app
 uv run --extra app python -m creative_predictor.app
 ```
 
+Roteiro de 6 a 8 minutos para apresentar a tela: [`docs/demo-guide.md`](docs/demo-guide.md).
+
 Demonstração com canais fora do treino (relatório em `reports/demo.md`):
 
 ```bash

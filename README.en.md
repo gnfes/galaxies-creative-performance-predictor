@@ -119,6 +119,8 @@ uv sync --extra app
 uv run --extra app python -m creative_predictor.app
 ```
 
+A 6 to 8 minute script to present the screen: [`docs/demo-guide.en.md`](docs/demo-guide.en.md).
+
 Demo with channels outside training (report in `reports/demo.md`):
 
 ```bash
