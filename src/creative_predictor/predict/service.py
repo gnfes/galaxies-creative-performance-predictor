@@ -570,6 +570,8 @@ def comparables(inp: CreativeInput, n: int = N_COMPARABLES) -> list[Comparable]:
     existiria antes de publicar (e um Short da base nunca é comparável de si
     mesmo)."""
     pool = _comparable_pool()
+    if pool.empty:  # sem a base local, não há comparáveis
+        return []
     pool = pool[
         (pool["sector"] == inp.sector) & (pool["published_at"] < planned_time(inp))
     ]

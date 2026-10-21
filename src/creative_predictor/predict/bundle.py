@@ -49,7 +49,8 @@ from creative_predictor.model.metrics import band_edges, conformal_margin
 BUNDLE_PATH = config.DATA_DIR / "models" / "predictor.joblib"
 OBJECTIVE = "huber"  # escolhido na validação (ver reports/metadata_text_results.csv)
 WIDE_INTERVAL_QUANTILE = 0.8  # intervalo mais largo que 80% da validação = incerto
-# Modelo publicado: anexado à release do GitHub, com o hash conferido no download.
+# Modelo publicado: anexado à release v1.0.0 do GitHub, com o hash conferido no
+# download. A URL só muda quando o modelo muda, não a cada versão do código.
 MODEL_URL = (
     "https://github.com/gnfes/galaxies-creative-performance-predictor/"
     "releases/download/v1.0.0/predictor.joblib"
