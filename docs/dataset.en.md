@@ -58,17 +58,17 @@ use another Python installed on the machine.
 | Demo channels | 13 | 215 | 215 |
 
 - 60 of the 87 channels are from Brazil (47 creators and 13 brands); the 27 global ones are 5
-  creators and 22 brands, from the US, UK, Germany, France, Italy, Spain and Sweden (5 with no
-  country declared in the API).
+  creators and 22 brands, from the US, UK, Germany, France, Italy and Spain (5 with no country
+  declared in the API).
 - 29,916 Shorts in the window have a target (106 have hidden likes and 165 lack enough history).
 - **Multimodal sample**: up to 120 Shorts per channel (with visible likes and up to 3 minutes long),
   spread over the window, which go on to download, frame extraction, transcription and VLM
   attributes. Spreading them over time ensures every channel covers the same period in the
   temporal split.
 - **Extraction (cut on 10/19/2026)**: of the 9,769 sampled Shorts (9,554 for training and test and
-  215 for the demo), 9,665 were downloaded and processed (frames, transcript, video and audio
-  signals, embeddings), and 9,640 have the `gemma-4-31b-it` rubric. Another 92 went offline or
-  became private after the collection, and 12 stayed blocked by YouTube. The sample covers about
+  215 for the demo), 9,662 were downloaded and processed (frames, transcript, video and audio
+  signals, embeddings), and 9,648 have the `gemma-4-31b-it` rubric. Another 92 went offline or
+  became private after the collection, and 15 stayed blocked by YouTube. The sample covers about
   32% of the training rows; in the rest, the video fields are empty.
 - **Demo channels**: 13 channels outside training, with few Shorts in the window (Garnier, Quem
   Disse Berenice, Camila Gaio, H&M, Toyota do Brasil, Jeep, Chevrolet, Nissan, Reserva, Hering,
@@ -142,8 +142,9 @@ Shorts published at least 30 days before the Short (minimum of 10). Implemented 
   playing or replays. The dataset's likes-per-view ratio drops from ~0.06 to ~0.035 that month, so
   views before and after are not comparable. Brand channel views also include paid media.
 - Distribution: median ≈ 0 and standard deviation ≈ 1.1. Quantiles P25 = −0.57 (0.57× the channel
-  median), P75 = 0.51 (1.66×) and P95 = 1.92 (6.8×), which define the below / average / above /
-  viral bands.
+  median), P75 = 0.51 (1.66×) and P95 = 1.92 (6.8×) on the whole dataset. The below / average / above /
+  viral bands use the same quantiles computed on training only (in the saved model, 0.56×, 1.70×
+  and 7.4×).
 
 ## What the dataset does not represent
 

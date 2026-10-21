@@ -24,7 +24,7 @@ Full dataset card in [`docs/dataset.en.md`](docs/dataset.en.md); exploratory ana
 
 - **Source**: YouTube Data API v3 (each channel's Shorts playlist, video details and channel statistics), collected on 10/13/2026.
 - **Period**: Shorts published from 10/15/2024 (when Shorts started accepting up to 3 minutes) to 08/28/2026 (at least 30 days before collection, with settled metrics).
-- **Volume**: 87 training channels (60 from Brazil) and 13 demo channels; 30,187 Shorts in the window, 29,916 with a target. The multimodal part (video, audio and attributes from a vision model) covers 9,665 Shorts from a sample of 9,769 (up to 120 per channel, spread over time; the rest went offline), 9,640 of them with the extractor rubric.
+- **Volume**: 87 training channels (60 from Brazil) and 13 demo channels; 30,187 Shorts in the window, 29,916 with a target. The multimodal part (video, audio and attributes from a vision model) covers 9,662 Shorts from a sample of 9,769 (up to 120 per channel, spread over time; the rest went offline or stayed blocked by YouTube), 9,648 of them with the extractor rubric.
 - **License and use**: the data follows the YouTube API Services Terms of Service, and the videos belong to their channels. The repository does not redistribute media, API responses or the collected tables; it keeps the channel list, the code that redoes the collection, and aggregated results.
 - **What the dataset does not represent**: other platforms, paid ads (channels with obvious boosting were left out), metrics other than likes, every brand in each sector (GAC, GWM, Renner, C&A and Shein Brasil have no active official Shorts channel), and how each post evolves over time.
 
@@ -147,15 +147,16 @@ uv run python -m creative_predictor.predict.bundle                     # saved m
 - **Rubric at prediction time**: optional (`use_vlm`). It sends frames and transcript to Google's free API, which may use the data for training; for confidential creatives, the prediction uses the signals and embeddings, computed locally.
 - **80% interval**: quantile regression (P10 and P90) with conformal calibration (CQR) on validation.
 - **Interval for risky Shorts**: stale history (reference Shorts older than 180 days, in median) and a declining channel (the 5 latest settled Shorts below ~60% of the median and fewer posts in the last 90 days) get their own conformal margin, calibrated on them only: the model errs more in these cases.
+- **Bands**: below, average, above and viral, split by the P25, P75 and P95 quantiles of the training target (in the saved model, 0.56×, 1.70× and 7.4× the channel median).
 - **Low-confidence flag**: channel with fewer than 10 settled Shorts, interval wider than 80% of the validation ones, channel outside the training dataset, stale history or declining channel. Thresholds were chosen on validation ([`model/confidence.py`](src/creative_predictor/model/confidence.py)).
 - **Features**, in blocks:
   - metadata: channel history (size, recent performance, posting rhythm, usual duration, age), format (duration, category), local time, text counts and title embedding;
   - video and audio signals: brightness, contrast, saturation, colorfulness, faces (YuNet), on-screen text (EasyOCR), motion, scene cuts (ffmpeg), audio energy and silence, speech density (faster-whisper);
-  - embeddings: frames, audio and transcript with EmbeddingGemma 2, reduced with PCA;
+  - embeddings: frames, audio and transcript with EmbeddingGemma 2, reduced with PCA (the thumbnail is downloaded but does not enter the model: the visual part comes from the 8 frames);
   - vision model rubric: hook, face, product, text and editing, audio, aesthetics and message, with per-sector adaptations, answered by `gemma-4-31b-it` from 8 frames and the transcript.
-- **Extractor choice**: benchmark on 28 Shorts against the reference `gemini-3.5-flash-lite` with the full video ([`reports/vlm_benchmark.csv`](reports/vlm_benchmark.csv)). `gemma-4-31b-it` was the closest to the reference and has open weights: the public dataset goes through the free API, and Galaxies can run the same model locally with unpublished creatives.
+- **Extractor choice**: benchmark on 28 Shorts against the reference `gemini-3.5-flash-lite` with the full video ([`reports/vlm_benchmark.csv`](reports/vlm_benchmark.csv)). `gemma-4-31b-it` was the closest to the reference and has open weights. The public dataset went through the free API, and the prediction calls the same API; with open weights, Galaxies can run the model locally for confidential creatives, but that switch is not implemented yet (see [Next steps](#next-steps)).
 - **Agent**: LangGraph with the local `gemma4:12b` (configurable through `CREATIVE_PREDICTOR_LLM`).
-- **Experiment tracking**: MLflow (`mlflow.db` at the root) and summaries in `reports/`.
+- **Experiment tracking**: local MLflow (`mlflow.db` and `mlartifacts/` at the root, outside git, recreated when the experiments run) and versioned summaries in `reports/`.
 
 ## Methodology
 
@@ -187,30 +188,32 @@ With a bootstrap over channels (90% interval), the final model beats the metadat
 
 ### Full test set and unseen channels
 
-| Model | MAE log | Within-channel Spearman | Pairwise |
-|---|---:|---:|---:|
-| Baseline: channel median | 0.702 | n/a | 0.500 |
-| Metadata and text | 0.658 | 0.336 | 0.612 |
-| Final model (every block) | 0.653 | 0.375 | 0.620 |
-| Metadata and text, unseen channels | 0.689 | 0.275 | 0.593 |
+| Model | MAE log | MAPE | Global Spearman | Within-channel Spearman | Pairwise | Band F1 |
+|---|---:|---:|---:|---:|---:|---:|
+| Baseline: channel median | 0.702 | 1.22 | 0.862 | n/a | 0.500 | 0.171 |
+| Baseline: channel's recent mean | 0.798 | 1.62 | 0.828 | −0.158 | 0.434 | 0.210 |
+| Baseline: regression on subscribers | 1.564 | 6.90 | 0.383 | 0.259 | 0.595 | 0.209 |
+| Metadata and text | 0.658 | 0.93 | 0.877 | 0.336 | 0.612 | 0.263 |
+| Final model (every block) | **0.653** | **0.93** | **0.879** | **0.375** | **0.620** | **0.267** |
+| Metadata and text, unseen channels | 0.689 | 1.05 | 0.869 | 0.275 | 0.593 | 0.222 |
 
-In the full test set, only a third of the Shorts have extracted video; the rest are predicted with metadata and text only.
+In the full test set, only a third of the Shorts have extracted video; the rest are predicted with metadata and text only. MAPE is the mean percentage error on likes, pulled up by a few Shorts far above the prediction; the median of that error is 48% for the final model, against 54% for the channel median. Global Spearman, on likes, already reaches 0.86 with the channel median alone (above the 0.55 to 0.85 range cited in the literature): it mostly measures channel size. That is why the comparison that matters for choosing creatives is the within-channel one.
 
 ### Trained model × LLM without a model
 
 The agent's LLM (`gemma4:12b`) received, for each Short, the 8 frames, the title, the duration, the transcript, the channel median and the channel's latest Shorts with their likes, and guessed the likes ([`model/llm_baseline.py`](src/creative_predictor/model/llm_baseline.py)). On the same 198 test Shorts:
 
-| Model | MAE log | Within-channel Spearman | Pairwise |
-|---|---:|---:|---:|
-| Baseline: channel median | 0.776 | n/a | 0.500 |
-| LLM without a model | 1.127 | 0.014 | 0.504 |
-| Trained model | **0.701** | **0.422** | **0.668** |
+| Model | MAE log | Median % error | Within-channel Spearman | Pairwise |
+|---|---:|---:|---:|---:|
+| Baseline: channel median | 0.776 | 57% | n/a | 0.500 |
+| LLM without a model | 1.127 | 78% | 0.014 | 0.504 |
+| Trained model | **0.701** | **50%** | **0.422** | **0.668** |
 
-The LLM errs more than the channel median and ranks Shorts of the same channel at chance level; the trained model gets two out of three pairs right.
+The LLM errs more than the channel median and ranks Shorts of the same channel at chance level; the trained model gets two out of three pairs right. The table shows the median percentage error because the LLM's MAPE is not informative: some guesses come out absurdly high ([`reports/llm_baseline_results.csv`](reports/llm_baseline_results.csv)).
 
 ### Interval, confidence and explanation
 
-- **80% interval**: 79.7% coverage on the test set (75.8% without calibration). On risky Shorts (12% of the test set), 78.0% with their own margin, against 71.7% with the single margin. On unseen channels, 78.2%. By sector: automotive 76.9%, beauty 82.1%, fashion 80.1%.
+- **80% interval**: 79.7% coverage on the test set (75.8% without calibration). On risky Shorts (12% of the test set), 78.0% with their own margin, against 71.7% with the single margin. On unseen channels, 78.2% (metadata and text model). By sector: automotive 76.9%, beauty 82.1%, fashion 80.1%.
 - **Low confidence**: flags 29.8% of the test set. Flagged Shorts err more (MAE 0.886, against 0.554 for the rest); those with stale history, twice as much (1.23).
 - **Agent explanations**: in 100 automatically checked explanations ([`agent/faithfulness.py`](src/creative_predictor/agent/faithfulness.py)), none of the 521 cited numbers was missing from the data received, all of them cite model factors, and every low-confidence one says so.
 
@@ -218,6 +221,7 @@ The LLM errs more than the channel median and ranks Shorts of the same channel a
 
 - **Sector**: fashion is the most predictable (pairwise 0.657), beauty the least (0.592).
 - **Channel type**: brands (0.559) err more than creators (0.644).
+- **Bands**: the prediction leans toward the center. Of the 2,821 test Shorts, none was predicted as viral (68 were) and only 216 as below normal (802 were), hence the 0.27 F1. The band is a summary; choosing between creatives uses the ranking.
 - **Largest errors**: boosted brand campaigns (Renault at 274× the channel median, Dove at 127×), explained by paid media that the data does not show.
 - **Factors**: the channel history dominates the prediction (mean absolute contribution of 0.82 in log, against 0.10 for embeddings, 0.05 for signals and 0.03 for the rubric).
 - **Demo** with 13 channels outside training (the 5 latest Shorts of each, predicted as if unpublished): 77 of 114 pairs in the right order (68%), in line with the test set. Only 27 of the 61 real like counts fall inside the 80% interval: several of these channels have stale history, the case where the model errs the most ([`reports/demo.md`](reports/demo.md)).
@@ -236,6 +240,8 @@ The LLM errs more than the channel median and ranks Shorts of the same channel a
 
 ## Next steps
 
+- Local extractor: run `gemma-4-31b-it` (open weights) on Galaxies' machines for confidential creatives, checking that the answers match those of the API used in training.
+- Test the thumbnail as a visual input, next to the frames.
 - Correct the bias of channels with stale history (for example, a time-weighted median).
 - Extract video for the whole dataset, not only the sample, so the model learns more from content.
 - Comparables by visual embedding, not only by title (search over the vectors already computed).

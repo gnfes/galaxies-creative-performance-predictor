@@ -97,6 +97,7 @@ As etapas da extração rodam em paralelo e acompanham o download (`--follow`). 
 Pacote `creative_predictor` (em `src/`):
 
 - `config`: raiz do projeto, pastas de dados e chaves do `.env`.
+- `files`: escrita atômica e download conferido por hash (modelo publicado e YuNet).
 - `collect`:
   - `youtube`: cliente da API com cache e contador de cota;
   - `channels`: curadoria e validação, exportando `configs/channels.yaml`;
@@ -176,9 +177,9 @@ Registro curto das decisões que moldam o sistema (contexto, decisão e consequ�
 | Curtidas, não views | Views de Shorts mudaram de definição em 31/03/2025 e incluem mídia paga em canais de marca | Canais que ocultam curtidas ficam de fora |
 | Histórico só com posts de 30+ dias | As curtidas da coleta são as de hoje; posts recentes ainda crescem | A previsão vê o canal como ele estaria na hora de publicar |
 | Um modelo com todos os blocos, campos vazios permitidos | Só parte da base tem vídeo extraído; um criativo pode chegar sem vídeo ou sem rubrica | O mesmo modelo serve aos três casos; o ganho de cada bloco é medido à parte |
-| Extrator `gemma-4-31b-it` | Melhor concordância com a referência no benchmark de 28 Shorts e pesos abertos | A base usa a API gratuita; criativos sigilosos podem usar o mesmo modelo localmente |
+| Extrator `gemma-4-31b-it` | Melhor concordância com a referência no benchmark de 28 Shorts e pesos abertos | A base e a previsão usam a API gratuita; com os pesos abertos, criativos sigilosos poderiam usar o mesmo modelo localmente (ainda não implementado) |
 | EmbeddingGemma 2 para título, frames, áudio e transcrição | Modelo aberto com texto, imagem e áudio no mesmo espaço | Uma dependência no lugar de CLIP/SigLIP, CLAP e sentence-transformers separados |
-| Intervalo por quantis + calibração conformal | Os quantis da LightGBM cobriam 75% em vez de 80% | Cobertura de 79% no teste e 78% em canais nunca vistos |
+| Intervalo por quantis + calibração conformal | Os quantis da LightGBM cobriam 75% em vez de 80% | Cobertura de 79% no teste e 78% em canais nunca vistos (modelo de metadados e texto) |
 | Sinal de risco do histórico com folga própria | Em canais com histórico desatualizado (referência com mais de 180 dias) ou em queda, o erro é bem maior | Esses Shorts saem como de baixa confiança e com um intervalo calibrado só neles (cobertura do grupo de 72% para 78%); os limites foram escolhidos na validação |
 | Fluxo fixo no agente | O brief exige que o número venha do modelo e que a evidência seja inspecionável | Toda previsão passa pelas mesmas ferramentas; o LLM só explica |
 | Subprocesso para PyTorch | Conflito de `libomp` entre LightGBM e PyTorch no macOS | Um processo a mais, com os modelos carregados uma vez |

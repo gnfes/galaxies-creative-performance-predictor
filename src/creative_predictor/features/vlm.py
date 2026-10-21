@@ -284,6 +284,6 @@ CANDIDATES = {
 }
 REFERENCE = "gemini-3.5-flash-lite"
 # Escolhido no benchmark de 28 Shorts: o mais próximo da referência e com pesos
-# abertos, para a Galaxies rodar o mesmo modelo localmente com criativos inéditos.
+# abertos (a Galaxies pode rodá-lo localmente; aqui ele é chamado pela API).
 EXTRACTOR = "gemma-4-31b-it"
 LOCAL = {"gemma4:12b", "qwen3.5:9b"}
