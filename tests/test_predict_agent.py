@@ -205,6 +205,32 @@ def test_naive_time_uses_the_country_of_a_dataset_channel(monkeypatch):
     assert service.planned_time(naive).hour == 22  # 18h em Nova York (UTC-4)
 
 
+def test_comparables_without_local_dataset_are_empty(monkeypatch):
+    empty = pd.DataFrame(columns=["channel_id"])
+    monkeypatch.setattr(service, "_base", lambda: (empty, empty))
+    assert service.comparables(creative()) == []
+
+
+def test_prediction_with_comparables_works_without_local_dataset(monkeypatch):
+    empty = pd.DataFrame(columns=["channel_id"])
+    monkeypatch.setattr(service, "_base", lambda: (empty, empty))
+    row = creative_row().assign(
+        title_pc0=0.0,
+        history_risk=False,
+        history_median_likes=50.0,
+        history_count=20,
+        history_age_days=40.0,
+        channel_decline=False,
+    )
+    history = pd.DataFrame(columns=["video_id", "published_at", "likes"])
+    monkeypatch.setattr(service, "feature_row", lambda inp, media: (row, history, None))
+    monkeypatch.setattr(service, "_bundle", PredictBundle)
+    naive = creative(planned_datetime=datetime(2026, 10, 20, 18, 0))  # noqa: DTZ001
+    out = service.predict_creative(naive)  # com comparáveis, como na Galaxies
+    assert out.comparables == []
+    assert out.predicted_metric > 0
+
+
 def test_comparables_only_come_from_before_the_planned_date(monkeypatch):
     pool = pd.DataFrame(
         {
