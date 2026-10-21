@@ -85,7 +85,7 @@ from creative_predictor.predict.service import predict_creative
 
 prediction = predict_creative(
     CreativeInput(
-        creative="campanha/look_do_dia.mp4",  # opcional: sem vídeo, só metadados e texto
+        creative="campanha/look_do_dia.mp4",  # opcional: caminho ou URL (inclusive do YouTube)
         caption="Look do dia: jeans, camisa branca e tênis",
         planned_datetime=datetime(2026, 10, 20, 18, 0),  # horário local do canal
         sector="moda",

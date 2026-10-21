@@ -123,6 +123,7 @@ Package `creative_predictor` (in `src/`):
   - `schemas`: contract;
   - `bundle`: saved model;
   - `service`: the prediction function;
+  - `source`: the creative's video as a local path (downloads URLs, YouTube included);
   - `media`: video extraction for a new creative;
   - `worker`: the PyTorch subprocess.
 - `agent.graph`: the agent; `agent.faithfulness`: the automatic check of the explanations.

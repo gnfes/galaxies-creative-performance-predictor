@@ -118,7 +118,7 @@ Validated with Pydantic (`predict.schemas`). Input, per creative:
 | `planned_datetime` | yes | Planned date and time; without a time zone, the channel's local time applies |
 | `channel` | yes | `channel_id` (history from the dataset or from the YouTube API) or a given `history` |
 | `sector` | yes | `moda`, `beleza` or `automotivo` |
-| `creative` | no | Path to the video file |
+| `creative` | no | Path to the video on the machine running the prediction, or an `http(s)` URL, including YouTube links (downloaded before extraction) |
 | `use_vlm` | no (false) | Allows sending frames and transcript to Google's API for the rubric |
 | `description`, `tags`, `category_id`, `duration_s`, `creative_id` | no | Planned metadata and a name for the ranking |
 

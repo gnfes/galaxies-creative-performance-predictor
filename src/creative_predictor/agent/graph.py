@@ -144,8 +144,20 @@ def _summary(prediction: Prediction) -> dict:
 
 
 def extract(state: AgentState) -> AgentState:
-    """Atributos do vídeo de cada criativo (None quando não há arquivo)."""
-    return {"media": [service.creative_media(item) for item in state["inputs"]]}
+    """Atributos do vídeo de cada criativo (None quando não há arquivo).
+
+    Uma URL é baixada aqui, uma vez; os nós seguintes recebem o criativo com o
+    caminho local (ou sem vídeo, se o download falhou, com o aviso em `notes`).
+    """
+    inputs, media = [], []
+    for item in state["inputs"]:
+        item, notes = service.local_creative(item)
+        found = service.creative_media(item)
+        if notes:
+            found = {"record": {}, "vectors": {}, "notes": notes}
+        inputs.append(item)
+        media.append(found)
+    return {"inputs": inputs, "media": media}
 
 
 def predict(state: AgentState) -> AgentState:

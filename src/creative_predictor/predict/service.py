@@ -38,7 +38,7 @@ from creative_predictor.model import dataset as ds
 from creative_predictor.model import multimodal as mm
 from creative_predictor.model.metrics import to_bands
 from creative_predictor.predict import bundle as bundle_mod
-from creative_predictor.predict import worker
+from creative_predictor.predict import source, worker
 from creative_predictor.predict.schemas import (
     ChannelInfo,
     Comparable,
@@ -328,6 +328,20 @@ def planned_time(inp: CreativeInput) -> pd.Timestamp:
     return planned.tz_convert("UTC")
 
 
+def local_creative(inp: CreativeInput) -> tuple[CreativeInput, list[str]]:
+    """O criativo com o vídeo num caminho local (baixado quando é uma URL) e
+    os avisos. Um download que falha não derruba a previsão: ela segue sem o
+    vídeo."""
+    if not source.is_url(inp.creative):
+        return inp, []
+    try:
+        path = source.local_video(inp.creative)
+    except Exception as error:  # noqa: BLE001 (segue com metadados e texto)
+        note = f"falha ao baixar o vídeo, previsão sem ele: {error}"[:400]
+        return inp.model_copy(update={"creative": None}), [note]
+    return inp.model_copy(update={"creative": path}), []
+
+
 def creative_media(inp: CreativeInput) -> dict | None:
     """Atributos do vídeo do criativo, extraídos no subprocesso (ou None).
 
@@ -335,8 +349,9 @@ def creative_media(inp: CreativeInput) -> dict | None:
     não derruba a previsão: os campos do vídeo ficam vazios e o motivo vai
     para `notes`.
     """
+    inp, notes = local_creative(inp)
     if inp.creative is None:
-        return None
+        return {"record": {}, "vectors": {}, "notes": notes} if notes else None
     try:
         return worker.media(str(inp.creative), inp.sector, inp.caption, inp.use_vlm)
     except Exception as error:  # noqa: BLE001 (segue com metadados e texto)
@@ -610,6 +625,7 @@ def predict_creative(
     extrai os atributos num nó próprio).
     """
     model = _bundle()
+    inp, download_notes = local_creative(inp)
     if media is None:
         media = creative_media(inp)
     row, history, warning = feature_row(inp, media)
@@ -660,10 +676,17 @@ def predict_creative(
         comparables=comparables(inp) if with_comparables else [],
         blocks_used=blocks_used(row, model),
         attributes=attributes(media),
-        notes=(media or {}).get("notes", [])
-        if inp.creative is not None
-        else ["sem arquivo de vídeo: previsão com metadados e texto"],
+        notes=_notes(inp, download_notes, media),
     )
+
+
+def _notes(inp: CreativeInput, download_notes: list[str], media: dict | None) -> list:
+    """Avisos sobre o vídeo: download, extração e, sem vídeo nem aviso, que a
+    previsão usou só metadados e texto."""
+    notes = download_notes + (media or {}).get("notes", [])
+    if inp.creative is None and not notes:
+        notes.append("sem arquivo de vídeo: previsão com metadados e texto")
+    return notes
 
 
 def _template_explanation(y: float, low: float, high: float, reasons: list[str]) -> str:
