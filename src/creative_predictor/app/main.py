@@ -104,9 +104,9 @@ def channel_picker(key: str) -> tuple[ChannelInfo, str] | None:
     row = options[options["label"] == choice].iloc[0]
     st.caption(
         f"O histórico dos canais da base vai até {history_end()}, o fim da janela "
-        "coletada. Para datas muito depois disso, o modelo vê uma pausa no canal "
-        "e o intervalo fica mais largo; para usar o histórico atual, escolha "
-        f'"{OTHER_CHANNEL}" e informe o id (busca na API do YouTube).'
+        "coletada: para datas muito depois disso, o modelo vê uma pausa no canal. "
+        "Canais fora da base, informados pelo id, usam o histórico atual, buscado "
+        "na API do YouTube."
     )
     country = None if pd.isna(row["country"]) else row["country"]
     channel = ChannelInfo(
