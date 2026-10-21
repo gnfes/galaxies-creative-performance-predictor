@@ -148,7 +148,7 @@ Servidor MCP (`creative_predictor.mcp_server`, FastMCP, stdio ou HTTP):
 |---|---|---|
 | `CREATIVE_PREDICTOR_LLM` | `gemma4:12b` | Modelo do Ollama que escreve as explicações |
 | `GEMINI_API_KEY` | — | Necessária só para a rubrica (`use_vlm`) |
-| `YOUTUBE_API_KEY` | — | Necessária só para canais fora da base sem histórico informado |
+| `YOUTUBE_API_KEY` | — | Necessária só para canais fora da base sem histórico informado; sem ela (ou se a API falhar), a previsão sai sem o histórico do canal e marcada como de baixa confiança |
 
 ## Garantias
 

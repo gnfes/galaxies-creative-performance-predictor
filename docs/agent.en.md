@@ -148,7 +148,7 @@ MCP server (`creative_predictor.mcp_server`, FastMCP, stdio or HTTP):
 |---|---|---|
 | `CREATIVE_PREDICTOR_LLM` | `gemma4:12b` | Ollama model that writes the explanations |
 | `GEMINI_API_KEY` | none | Needed only for the rubric (`use_vlm`) |
-| `YOUTUBE_API_KEY` | none | Needed only for channels outside the dataset without a given history |
+| `YOUTUBE_API_KEY` | none | Needed only for channels outside the dataset without a given history; without it (or if the API fails), the prediction comes without the channel history and flagged as low confidence |
 
 ## Guarantees
 
