@@ -38,7 +38,7 @@ from creative_predictor.model import dataset as ds
 from creative_predictor.model import multimodal as mm
 from creative_predictor.model.metrics import to_bands
 from creative_predictor.predict import bundle as bundle_mod
-from creative_predictor.predict import worker
+from creative_predictor.predict import source, worker
 from creative_predictor.predict.schemas import (
     ChannelInfo,
     Comparable,
@@ -319,13 +319,38 @@ def channel_habits(history: pd.DataFrame) -> dict:
     return habits
 
 
+def _channel_place(channel: ChannelInfo) -> tuple[str | None, str]:
+    """País e região do canal: os da base quando ele está nela (o padrão do
+    contrato é Brasil), senão os informados."""
+    if channel.channel_id:
+        _, channels = _base()
+        found = channels[channels["channel_id"] == channel.channel_id]
+        if len(found):
+            country = found["country"].iloc[0]
+            return (None if pd.isna(country) else country), found["region"].iloc[0]
+    return channel.country, channel.region
+
+
 def planned_time(inp: CreativeInput) -> pd.Timestamp:
     """Data planejada em UTC; sem fuso, vale o horário local do canal."""
     planned = pd.Timestamp(inp.planned_datetime)
     if planned.tzinfo is None:
-        tz = channel_timezone(inp.channel.country, inp.channel.region)
-        planned = planned.tz_localize(tz)
+        planned = planned.tz_localize(channel_timezone(*_channel_place(inp.channel)))
     return planned.tz_convert("UTC")
+
+
+def local_creative(inp: CreativeInput) -> tuple[CreativeInput, list[str]]:
+    """O criativo com o vídeo num caminho local (baixado quando é uma URL) e
+    os avisos. Um download que falha não derruba a previsão: ela segue sem o
+    vídeo."""
+    if not source.is_url(inp.creative):
+        return inp, []
+    try:
+        path = source.local_video(inp.creative)
+    except Exception as error:  # noqa: BLE001 (segue com metadados e texto)
+        note = f"falha ao baixar o vídeo, previsão sem ele: {error}"[:400]
+        return inp.model_copy(update={"creative": None}), [note]
+    return inp.model_copy(update={"creative": path}), []
 
 
 def creative_media(inp: CreativeInput) -> dict | None:
@@ -335,8 +360,9 @@ def creative_media(inp: CreativeInput) -> dict | None:
     não derruba a previsão: os campos do vídeo ficam vazios e o motivo vai
     para `notes`.
     """
+    inp, notes = local_creative(inp)
     if inp.creative is None:
-        return None
+        return {"record": {}, "vectors": {}, "notes": notes} if notes else None
     try:
         return worker.media(str(inp.creative), inp.sector, inp.caption, inp.use_vlm)
     except Exception as error:  # noqa: BLE001 (segue com metadados e texto)
@@ -530,7 +556,7 @@ def _comparable_pool() -> pd.DataFrame:
     table = table[table["video_id"].isin(vectors.index)]
     names = channels.set_index("channel_id")["name"]
     pool = table[
-        ["video_id", "channel_id", "sector", "title", "likes", "target"]
+        ["video_id", "channel_id", "sector", "published_at", "title", "likes", "target"]
     ].copy()
     pool["channel"] = pool["channel_id"].map(names)
     pool["vector"] = list(vectors.loc[pool["video_id"]].to_numpy())
@@ -538,9 +564,15 @@ def _comparable_pool() -> pd.DataFrame:
 
 
 def comparables(inp: CreativeInput, n: int = N_COMPARABLES) -> list[Comparable]:
-    """Shorts reais com título parecido: do próprio canal, se houver, e do setor."""
+    """Shorts reais com título parecido: do próprio canal, se houver, e do setor.
+
+    Só entram Shorts publicados antes da data planejada: a evidência é a que
+    existiria antes de publicar (e um Short da base nunca é comparável de si
+    mesmo)."""
     pool = _comparable_pool()
-    pool = pool[pool["sector"] == inp.sector]
+    pool = pool[
+        (pool["sector"] == inp.sector) & (pool["published_at"] < planned_time(inp))
+    ]
     if pool.empty:
         return []
     query = worker.embed([inp.caption])[0]
@@ -610,6 +642,7 @@ def predict_creative(
     extrai os atributos num nó próprio).
     """
     model = _bundle()
+    inp, download_notes = local_creative(inp)
     if media is None:
         media = creative_media(inp)
     row, history, warning = feature_row(inp, media)
@@ -660,10 +693,17 @@ def predict_creative(
         comparables=comparables(inp) if with_comparables else [],
         blocks_used=blocks_used(row, model),
         attributes=attributes(media),
-        notes=(media or {}).get("notes", [])
-        if inp.creative is not None
-        else ["sem arquivo de vídeo: previsão com metadados e texto"],
+        notes=_notes(inp, download_notes, media),
     )
+
+
+def _notes(inp: CreativeInput, download_notes: list[str], media: dict | None) -> list:
+    """Avisos sobre o vídeo: download, extração e, sem vídeo nem aviso, que a
+    previsão usou só metadados e texto."""
+    notes = download_notes + (media or {}).get("notes", [])
+    if inp.creative is None and not notes:
+        notes.append("sem arquivo de vídeo: previsão com metadados e texto")
+    return notes
 
 
 def _template_explanation(y: float, low: float, high: float, reasons: list[str]) -> str:
@@ -680,6 +720,8 @@ def _template_explanation(y: float, low: float, high: float, reasons: list[str])
 def rank_creatives(inputs: list[CreativeInput]) -> Ranking:
     """Ordena criativos pelo desempenho previsto em relação ao canal."""
     predictions = [predict_creative(i) for i in inputs]
+    if not predictions:
+        return Ranking(predictions=[], explanation="Nenhum criativo para ordenar.")
     predictions.sort(key=lambda p: p.relative_to_channel, reverse=True)
     best = predictions[0]
     return Ranking(

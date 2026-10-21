@@ -101,7 +101,7 @@ The LLM's MAPE is not informative (some guesses come out absurdly high); that is
 - flags 29.8% of the test set, which err more (MAE 0.886 against 0.554);
 - by reason: wide interval 0.94; stale history 1.23 (2.4% of the test set); declining channel 0.78 (10% of the test set).
 
-**Agent explanations**: in 100 automatically checked explanations, none of the 521 cited numbers was missing from the data the LLM received, and every low-confidence one says so.
+**Agent explanations**: in 100 automatically checked explanations, none of the 516 cited numbers was missing from the data the LLM received, and every low-confidence one says so.
 
 **Demo** (13 channels outside training, 5 recent Shorts each):
 - 77 of 114 pairs in the right order (68%);

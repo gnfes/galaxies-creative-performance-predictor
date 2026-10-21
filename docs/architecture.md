@@ -123,6 +123,7 @@ Pacote `creative_predictor` (em `src/`):
   - `schemas`: contrato;
   - `bundle`: modelo salvo;
   - `service`: a função de previsão;
+  - `source`: o vídeo do criativo num caminho local (baixa URLs, inclusive do YouTube);
   - `media`: extração do vídeo de um criativo novo;
   - `worker`: o subprocesso PyTorch.
 - `agent.graph`: o agente; `agent.faithfulness`: a checagem automática das explicações.

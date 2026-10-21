@@ -44,8 +44,10 @@ class ChannelInfo(BaseModel):
 class CreativeInput(BaseModel):
     """Um criativo a avaliar antes da publicação."""
 
-    creative: Path | None = Field(
-        None, description="Arquivo de vídeo do criativo (opcional)"
+    creative: Path | str | None = Field(
+        None,
+        description="Vídeo do criativo (opcional): caminho na máquina que roda a "
+        "previsão ou URL http(s), inclusive links do YouTube",
     )
     caption: str = Field(..., description="Título/legenda planejada")
     description: str = ""

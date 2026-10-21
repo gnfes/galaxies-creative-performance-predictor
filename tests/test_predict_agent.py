@@ -125,6 +125,109 @@ def test_agent_ranks_and_explains_with_llm(monkeypatch):
     assert '"vezes_a_mediana_do_canal": 1.6' in llm.prompts[-1]
 
 
+class BrokenLLM:
+    def invoke(self, prompt):
+        raise ConnectionError("Ollama parou")
+
+
+def test_agent_keeps_the_numbers_when_the_llm_fails_midway(monkeypatch):
+    fake_service(monkeypatch)
+    monkeypatch.setattr(graph, "_llm", BrokenLLM)
+    result = graph.analyze([creative(creative_id="a"), creative(creative_id="b")])
+    assert [p.creative_id for p in result.predictions] == ["b", "a"]
+    assert all(p.explanation == "texto padrão" for p in result.predictions)
+    assert result.explanation.startswith("Melhor previsão: b")
+
+
+def test_rank_of_no_creatives_is_empty():
+    assert service.rank_creatives([]).predictions == []
+
+
+def test_download_failure_keeps_the_prediction_going(monkeypatch):
+    def offline(creative):
+        raise OSError("sem rede")
+
+    monkeypatch.setattr(service.source, "local_video", offline)
+    inp, notes = service.local_creative(creative(creative="https://x.com/v.mp4"))
+    assert inp.creative is None
+    assert "sem rede" in notes[0]
+    local = creative(creative="campanha/v.mp4")
+    assert service.local_creative(local) == (local, [])
+
+
+def test_failed_download_gives_one_clear_note(monkeypatch):
+    def offline(creative):
+        raise OSError("sem rede")
+
+    monkeypatch.setattr(service.source, "local_video", offline)
+    row = creative_row().assign(
+        title_pc0=0.0,
+        history_risk=False,
+        history_median_likes=50.0,
+        history_count=20,
+        history_age_days=40.0,
+        channel_decline=False,
+    )
+    history = pd.DataFrame(columns=["video_id", "published_at", "likes"])
+    monkeypatch.setattr(service, "feature_row", lambda inp, media: (row, history, None))
+    monkeypatch.setattr(service, "_bundle", PredictBundle)
+    out = service.predict_creative(
+        creative(creative="https://x.com/v.mp4"), with_comparables=False
+    )
+    assert len(out.notes) == 1
+    assert "falha ao baixar o vídeo" in out.notes[0]
+
+
+def test_agent_downloads_once_and_passes_the_local_video(monkeypatch):
+    seen = fake_service(monkeypatch)
+    calls = []
+
+    def resolve(item):
+        calls.append(item.creative_id)
+        return item.model_copy(update={"creative": "local.mp4"}), []
+
+    monkeypatch.setattr(graph.service, "local_creative", resolve)
+    monkeypatch.setattr(graph, "_llm", lambda: None)
+    graph.analyze([creative(creative_id="a", creative="https://x.com/v.mp4")])
+    assert calls == ["a"]
+    assert seen == {"a": {"record": {"cuts": 3.0}}}
+
+
+def test_naive_time_uses_the_country_of_a_dataset_channel(monkeypatch):
+    channels = pd.DataFrame(
+        {"channel_id": ["UCus"], "country": ["US"], "region": ["global"]}
+    )
+    monkeypatch.setattr(service, "_base", lambda: (pd.DataFrame(), channels))
+    naive = creative(
+        planned_datetime=datetime(2026, 10, 20, 18, 0),  # noqa: DTZ001
+        channel={"channel_id": "UCus"},  # país padrão do contrato: BR
+    )
+    assert service.planned_time(naive).hour == 22  # 18h em Nova York (UTC-4)
+
+
+def test_comparables_only_come_from_before_the_planned_date(monkeypatch):
+    pool = pd.DataFrame(
+        {
+            "video_id": ["antes", "depois"],
+            "channel_id": ["UCx", "UCx"],
+            "sector": ["moda", "moda"],
+            "published_at": pd.to_datetime(["2026-08-01", "2026-12-01"], utc=True),
+            "title": ["a", "b"],
+            "likes": [10, 20],
+            "target": [0.0, 1.0],
+            "channel": ["Canal", "Canal"],
+            "vector": [np.ones(2), np.ones(2)],
+        }
+    )
+    monkeypatch.setattr(service, "_comparable_pool", lambda: pool)
+    monkeypatch.setattr(
+        service, "_base", lambda: (pd.DataFrame(), pd.DataFrame(columns=["channel_id"]))
+    )
+    monkeypatch.setattr(service.worker, "embed", lambda texts: np.ones((1, 2)))
+    found = service.comparables(creative())  # planejado para 20/10/2026
+    assert [c.video_id for c in found] == ["antes"]
+
+
 def test_agent_works_without_llm(monkeypatch):
     fake_service(monkeypatch)
     monkeypatch.setattr(graph, "_llm", lambda: None)

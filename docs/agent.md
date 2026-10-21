@@ -61,7 +61,7 @@ O estado é um `TypedDict` (`AgentState`) que cada nó lê e atualiza:
 |---|---|---|---|
 | `extract` | Extração de atributos | Para cada criativo com vídeo, roda os mesmos passos da base de treino: frames, transcrição (faster-whisper), sinais do vídeo e do áudio (rostos, texto na tela, cortes, cor, movimento, volume), embeddings (EmbeddingGemma 2) e, se `use_vlm` for verdadeiro, a rubrica do `gemma-4-31b-it` | Sem vídeo, os campos ficam vazios; sem a rubrica (não pedida, sem chave ou sem resposta em 15 min), a previsão sai com os sinais e os embeddings |
 | `predict` | Predição e explicabilidade | Monta a linha do criativo com o histórico do canal, consulta a LightGBM (previsão, P10, P90 e folga conformal, maior nos Shorts de risco), calcula os fatores com SHAP e os motivos de baixa confiança | Canal sem histórico: usa a mediana de todos os Shorts do canal ou do setor, e marca baixa confiança |
-| `comparables` | Histórico e comparáveis | Busca Shorts reais da base com título parecido, do mesmo canal e do setor, com o desempenho observado | Sem a base local, a lista sai vazia |
+| `comparables` | Histórico e comparáveis | Busca Shorts reais da base com título parecido, do mesmo canal e do setor, publicados antes da data planejada, com o desempenho observado | Sem a base local, a lista sai vazia |
 | `explain` | Explicação | O LLM local (`gemma4:12b`) escreve até 5 frases a partir dos números já calculados | Sem o Ollama, fica o texto padrão |
 | `rank` | Ordenação | Ordena pelo desempenho previsto em relação ao canal e, com o LLM, compara os criativos levando em conta os intervalos | Sem o LLM, uma frase padrão com o melhor criativo |
 
@@ -118,7 +118,7 @@ Validadas com Pydantic (`predict.schemas`). Entrada, por criativo:
 | `planned_datetime` | sim | Data e hora previstas; sem fuso, vale o horário local do canal |
 | `channel` | sim | `channel_id` (histórico da base ou da API do YouTube) ou `history` informado |
 | `sector` | sim | `moda`, `beleza` ou `automotivo` |
-| `creative` | não | Caminho do arquivo de vídeo |
+| `creative` | não | Caminho do vídeo na máquina que roda a previsão ou URL `http(s)`, inclusive links do YouTube (baixados antes da extração) |
 | `use_vlm` | não (falso) | Autoriza enviar frames e transcrição à API do Google para a rubrica |
 | `description`, `tags`, `category_id`, `duration_s`, `creative_id` | não | Metadados planejados e um nome para o ranking |
 

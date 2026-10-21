@@ -33,7 +33,7 @@ A pergunta é quantas curtidas um Short vai ter antes de ser publicado, em rela�
 - Canal: **Karen Bachini** (beleza), data 29/08/2026, com 2 criativos: "Make rápida para o dia a dia com 3 produtos" com 45 s e "Testei a base mais viral do momento: vale a pena?" com 120 s. Deixe a explicação pelo LLM marcada. O segundo sai na frente (cerca de 2.500 curtidas previstas contra 1.900), puxado pela duração, o sinal simples mais forte da base.
 - O que mostrar:
   - o ranking, em curtidas previstas e vezes a mediana do canal;
-  - a explicação do agente, que cita os números e os fatores recebidos (numa checagem automática de 100 explicações, nenhum dos 521 números citados era inventado);
+  - a explicação do agente, que cita os números e os fatores recebidos (numa checagem automática de 100 explicações, nenhum dos 516 números citados era inventado);
   - os intervalos sobrepostos: a explicação diz quando a diferença entre os criativos está dentro da incerteza. Com a mesma duração, as duas legendas ficam quase empatadas, e a explicação diz que a diferença não é clara.
 
 ## 4. Canais fora do treino (1 a 2 min)
