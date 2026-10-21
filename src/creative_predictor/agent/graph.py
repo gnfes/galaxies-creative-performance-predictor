@@ -121,6 +121,15 @@ def _llm():
         return None
 
 
+def _ask(llm, prompt: str) -> str:
+    """Texto do LLM, ou vazio se ele falhar no meio (Ollama parado, tempo
+    esgotado): os números já estão prontos e a explicação padrão fica."""
+    try:
+        return llm.invoke(prompt).content.strip()
+    except Exception:  # noqa: BLE001 (a explicação cai para o texto padrão)
+        return ""
+
+
 def _summary(prediction: Prediction) -> dict:
     """O que o LLM pode usar: números já calculados, sem nada a inventar."""
     return {
@@ -184,7 +193,7 @@ def explain(state: AgentState) -> AgentState:
     predictions = []
     for p in state["predictions"]:
         prompt = EXPLAIN_PROMPT.format(data=json.dumps(_summary(p), ensure_ascii=False))
-        text = llm.invoke(prompt).content.strip()
+        text = _ask(llm, prompt)
         predictions.append(p.model_copy(update={"explanation": text or p.explanation}))
     return {"predictions": predictions}
 
@@ -201,7 +210,7 @@ def rank(state: AgentState) -> AgentState:
     llm = _llm()
     if llm is not None:
         data = json.dumps([_summary(p) for p in ordered], ensure_ascii=False)
-        text = llm.invoke(RANK_PROMPT.format(data=data)).content.strip() or text
+        text = _ask(llm, RANK_PROMPT.format(data=data)) or text
     return {"ranking": Ranking(predictions=ordered, explanation=text)}
 
 

@@ -319,12 +319,23 @@ def channel_habits(history: pd.DataFrame) -> dict:
     return habits
 
 
+def _channel_place(channel: ChannelInfo) -> tuple[str | None, str]:
+    """País e região do canal: os da base quando ele está nela (o padrão do
+    contrato é Brasil), senão os informados."""
+    if channel.channel_id:
+        _, channels = _base()
+        found = channels[channels["channel_id"] == channel.channel_id]
+        if len(found):
+            country = found["country"].iloc[0]
+            return (None if pd.isna(country) else country), found["region"].iloc[0]
+    return channel.country, channel.region
+
+
 def planned_time(inp: CreativeInput) -> pd.Timestamp:
     """Data planejada em UTC; sem fuso, vale o horário local do canal."""
     planned = pd.Timestamp(inp.planned_datetime)
     if planned.tzinfo is None:
-        tz = channel_timezone(inp.channel.country, inp.channel.region)
-        planned = planned.tz_localize(tz)
+        planned = planned.tz_localize(channel_timezone(*_channel_place(inp.channel)))
     return planned.tz_convert("UTC")
 
 
@@ -545,7 +556,7 @@ def _comparable_pool() -> pd.DataFrame:
     table = table[table["video_id"].isin(vectors.index)]
     names = channels.set_index("channel_id")["name"]
     pool = table[
-        ["video_id", "channel_id", "sector", "title", "likes", "target"]
+        ["video_id", "channel_id", "sector", "published_at", "title", "likes", "target"]
     ].copy()
     pool["channel"] = pool["channel_id"].map(names)
     pool["vector"] = list(vectors.loc[pool["video_id"]].to_numpy())
@@ -553,9 +564,15 @@ def _comparable_pool() -> pd.DataFrame:
 
 
 def comparables(inp: CreativeInput, n: int = N_COMPARABLES) -> list[Comparable]:
-    """Shorts reais com título parecido: do próprio canal, se houver, e do setor."""
+    """Shorts reais com título parecido: do próprio canal, se houver, e do setor.
+
+    Só entram Shorts publicados antes da data planejada: a evidência é a que
+    existiria antes de publicar (e um Short da base nunca é comparável de si
+    mesmo)."""
     pool = _comparable_pool()
-    pool = pool[pool["sector"] == inp.sector]
+    pool = pool[
+        (pool["sector"] == inp.sector) & (pool["published_at"] < planned_time(inp))
+    ]
     if pool.empty:
         return []
     query = worker.embed([inp.caption])[0]
@@ -703,6 +720,8 @@ def _template_explanation(y: float, low: float, high: float, reasons: list[str])
 def rank_creatives(inputs: list[CreativeInput]) -> Ranking:
     """Ordena criativos pelo desempenho previsto em relação ao canal."""
     predictions = [predict_creative(i) for i in inputs]
+    if not predictions:
+        return Ranking(predictions=[], explanation="Nenhum criativo para ordenar.")
     predictions.sort(key=lambda p: p.relative_to_channel, reverse=True)
     best = predictions[0]
     return Ranking(
