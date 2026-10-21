@@ -1,6 +1,6 @@
 [project]
 name = "creative-predictor"
-version = "0.1.0"
+version = "1.0.0"
 description = "Agente preditivo de performance de criativos em YouTube Shorts (moda, beleza e automotivo) — Inteli Academy x Galaxies"
 authors = [
     { name = "Guilherme Nunes Fernandes e Silva", email = "gnfsemp@gmail.com" }
@@ -40,7 +40,7 @@ requires = ["uv_build>=0.12.19,<0.13.0"]
 build-backend = "uv_build"
 
 [tool.uv]
-required-version = ">=0.12.19,<0.13"
+required-version = ">=0.12.19,<0.14"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
