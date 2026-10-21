@@ -33,7 +33,7 @@ The question is how many likes a Short will get before it is published, relative
 - Channel: **Karen Bachini** (beauty), date 08/29/2026, with 2 creatives: "Make rápida para o dia a dia com 3 produtos" at 45 s and "Testei a base mais viral do momento: vale a pena?" at 120 s. Keep the LLM explanation ticked. The second one comes out ahead (about 2,500 predicted likes against 1,900), driven by duration, the strongest simple signal in the dataset.
 - What to show:
   - the ranking, in predicted likes and times the channel median;
-  - the agent's explanation, which cites the numbers and drivers it received (in an automatic check of 100 explanations, none of the 521 numbers cited was made up);
+  - the agent's explanation, which cites the numbers and drivers it received (in an automatic check of 100 explanations, none of the 516 numbers cited was made up);
   - the overlapping intervals: the explanation says when the difference between the creatives is within the uncertainty. With the same duration, the two captions come out almost tied, and the explanation says the difference is not clear.
 
 ## 4. Channels outside training (1 to 2 min)

@@ -215,7 +215,7 @@ O LLM erra mais que a mediana do canal e ordena Shorts do mesmo canal no nível 
 
 - **Intervalo de 80%**: cobertura de 79,7% no teste (75,8% sem calibração). Nos Shorts de risco (12% do teste), 78,0% com a folga própria, contra 71,7% com a folga única. Em canais nunca vistos, 78,2% (modelo de metadados e texto). Por setor: automotivo 76,9%, beleza 82,1%, moda 80,1%.
 - **Baixa confiança**: marca 29,8% do teste. Os marcados erram mais (MAE 0,886, contra 0,554 dos demais); os de histórico desatualizado, o dobro (1,23).
-- **Explicações do agente**: em 100 explicações conferidas automaticamente ([`agent/faithfulness.py`](src/creative_predictor/agent/faithfulness.py)), nenhum dos 521 números citados estava fora dos dados recebidos, todas citam fatores do modelo e todas as de baixa confiança dizem isso.
+- **Explicações do agente**: em 100 explicações conferidas automaticamente ([`agent/faithfulness.py`](src/creative_predictor/agent/faithfulness.py)), nenhum dos 516 números citados estava fora dos dados recebidos, todas citam fatores do modelo e todas as de baixa confiança dizem isso.
 
 ### Onde o modelo erra
 

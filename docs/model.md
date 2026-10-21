@@ -101,7 +101,7 @@ O MAPE do LLM não é informativo (alguns chutes saem absurdamente altos); por i
 - marca 29,8% do teste, que erram mais (MAE 0,886 contra 0,554);
 - por motivo: intervalo largo 0,94; histórico desatualizado 1,23 (2,4% do teste); canal em queda 0,78 (10% do teste).
 
-**Explicações do agente**: em 100 explicações conferidas automaticamente, nenhum dos 521 números citados estava fora dos dados que o LLM recebeu, e todas as de baixa confiança dizem isso.
+**Explicações do agente**: em 100 explicações conferidas automaticamente, nenhum dos 516 números citados estava fora dos dados que o LLM recebeu, e todas as de baixa confiança dizem isso.
 
 **Demonstração** (13 canais fora do treino, 5 Shorts recentes de cada):
 - 77 de 114 pares na ordem certa (68%);

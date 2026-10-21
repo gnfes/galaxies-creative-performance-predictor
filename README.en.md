@@ -215,7 +215,7 @@ The LLM errs more than the channel median and ranks Shorts of the same channel a
 
 - **80% interval**: 79.7% coverage on the test set (75.8% without calibration). On risky Shorts (12% of the test set), 78.0% with their own margin, against 71.7% with the single margin. On unseen channels, 78.2% (metadata and text model). By sector: automotive 76.9%, beauty 82.1%, fashion 80.1%.
 - **Low confidence**: flags 29.8% of the test set. Flagged Shorts err more (MAE 0.886, against 0.554 for the rest); those with stale history, twice as much (1.23).
-- **Agent explanations**: in 100 automatically checked explanations ([`agent/faithfulness.py`](src/creative_predictor/agent/faithfulness.py)), none of the 521 cited numbers was missing from the data received, all of them cite model factors, and every low-confidence one says so.
+- **Agent explanations**: in 100 automatically checked explanations ([`agent/faithfulness.py`](src/creative_predictor/agent/faithfulness.py)), none of the 516 cited numbers was missing from the data received, all of them cite model factors, and every low-confidence one says so.
 
 ### Where the model errs
 
