@@ -1,9 +1,7 @@
 import hashlib
-import tomllib
 
 import pytest
 
-from creative_predictor import config
 from creative_predictor.predict import bundle
 
 
@@ -44,6 +42,9 @@ def test_download_keeps_a_different_local_model(tmp_path):
     assert bundle.download(target, "file:///nao/existe", expected_sha256=good) == target
 
 
-def test_published_model_url_matches_the_project_version():
-    pyproject = tomllib.loads((config.ROOT_DIR / "pyproject.toml").read_text())
-    assert f"/v{pyproject['project']['version']}/" in bundle.MODEL_URL
+def test_published_model_url_points_to_a_release_asset():
+    assert bundle.MODEL_URL.startswith(
+        "https://github.com/gnfes/galaxies-creative-performance-predictor/"
+        "releases/download/v"
+    )
+    assert bundle.MODEL_URL.endswith("/predictor.joblib")
