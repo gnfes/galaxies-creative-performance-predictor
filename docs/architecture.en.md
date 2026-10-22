@@ -118,6 +118,7 @@ Package `creative_predictor` (in `src/`):
   - `train`: baselines and metadata and text experiments;
   - `multimodal`: gain per block and the functions that prepare the video columns, also used at prediction time;
   - `confidence`: validation of the low-confidence rules and of the risk margin;
+  - `model_choice`: the choice of algorithm and loss, and the month-by-month performance on the test set;
   - `llm_baseline`: the comparison with an LLM without a model.
 - `predict`:
   - `schemas`: contract;

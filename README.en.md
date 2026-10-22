@@ -16,7 +16,7 @@ Scope:
 - **Sectors**: fashion, beauty and automotive, with brand and creator channels.
 - **Region**: Brazil is the focus and the only test set; global channels are used for training only.
 - **Metric**: likes relative to the channel's own median. Views were left out: YouTube changed how Shorts views are counted on 03/31/2025 (every play or replay now counts), and brand channel views include paid media.
-- **Prediction time**: before publication, without any metric from the post itself.
+- **Prediction time**: before publication, without any metric from the post itself (views, likes and comments only exist after publishing and are not features).
 
 ## Dataset
 
@@ -27,6 +27,7 @@ Full dataset card in [`docs/dataset.en.md`](docs/dataset.en.md); exploratory ana
 - **Volume**: 87 training channels (60 from Brazil) and 13 demo channels; 30,187 Shorts in the window, 29,916 with a target. The multimodal part (video, audio and attributes from a vision model) covers 9,662 Shorts from a sample of 9,769 (up to 120 per channel, spread over time; the rest went offline or stayed blocked by YouTube), 9,648 of them with the extractor rubric.
 - **License and use**: the data follows the YouTube API Services Terms of Service, and the videos belong to their channels. The repository does not redistribute media, API responses or the collected tables; it keeps the channel list, the code that redoes the collection, and aggregated results.
 - **What the dataset does not represent**: other platforms, paid ads (channels with obvious boosting were left out), metrics other than likes, every brand in each sector (GAC, GWM, Renner, C&A and Shein Brasil have no active official Shorts channel), and how each post evolves over time.
+- **Why the dataset has this size**: the metadata covers 87 channels and 30,187 Shorts, above the brief's target (5 to 15 thousand videos, 60 or more channels). More channels run into the entry criteria: at least 50 Shorts in the window, content from the sector itself, and neither dominant paid media nor hidden likes. Many Brazilian brands post few Shorts or have no active official channel. The window starts on 10/15/2024, when Shorts started accepting up to 3 minutes; before that the format was different. The part with video is a sample of up to 120 Shorts per channel because extraction was the bottleneck: the extractor's free quota processes 1 to 4 videos per minute and YouTube blocked downloads every ~500. The sample took about three and a half days; the whole dataset would take more than a week at that pace.
 
 ## Architecture
 
@@ -175,6 +176,22 @@ uv run python -m creative_predictor.predict.bundle                     # saved m
 
 The creative can arrive as a video, as an image (treated as a one-frame video, without audio) or as text only (caption and metadata). The model was trained and evaluated on videos only; the prediction for an image was not evaluated.
 
+### How the final model was chosen
+
+1. **Algorithm and loss**: with the same metadata and text features and the same temporal split, we compared on validation LightGBM with the Huber, L1 and L2 losses, scikit-learn's gradient boosting and a linear regression (Ridge). LightGBM with Huber had the lowest error, and the test set confirmed the order by MAE. The alternatives used default settings, without tuning, so the comparison is indicative ([`reports/model_choice_results.csv`](reports/model_choice_results.csv), [`model/model_choice.py`](src/creative_predictor/model/model_choice.py)). LightGBM also accepts empty fields and categories without preprocessing, which matters because two thirds of the dataset have no extracted video. CatBoost and XGBoost were not compared.
+
+   | Model | MAE log on validation | MAE log on test | Pairwise on test |
+   |---|---:|---:|---:|
+   | **LightGBM, Huber (chosen)** | **0.675** | **0.658** | **0.612** |
+   | LightGBM, L2 | 0.678 | 0.668 | 0.609 |
+   | LightGBM, L1 | 0.681 | 0.663 | 0.607 |
+   | scikit-learn gradient boosting | 0.689 | 0.676 | 0.595 |
+   | Linear regression (Ridge) | 0.707 | 0.681 | 0.608 |
+
+2. **Feature blocks**: the gain of each block was measured on the same test subset, with a bootstrap over channels (see [Gain per block](#gain-per-block)). The final model uses every block because the combination improves ranking significantly. The rubric alone has no significant gain and sends data to Google's API; that is why it is optional at prediction time.
+3. **Hyperparameters**: fixed (learning rate 0.03, 31 leaves, at least 50 Shorts per leaf, 80% sampling of rows and columns), with early stopping on validation. There was no hyperparameter search.
+4. **Saved model**: the same configuration, retrained on every Short with a target.
+
 ## Methodology
 
 - **Hypothesis**: the creative's content (text, video and audio) improves the ranking between Shorts of the same channel beyond what the channel's history explains. Null hypothesis: a model with only the channel history ranks just as well. Test: the same model with and without each content block, on the same subset of the temporal test set, with a bootstrap confidence interval over channels.
@@ -215,6 +232,8 @@ With a bootstrap over channels (90% interval), the final model beats the metadat
 | Metadata and text, unseen channels | 0.689 | 1.05 | 0.869 | 0.275 | 0.593 | 0.222 |
 
 In the full test set, only a third of the Shorts have extracted video; the rest are predicted with metadata and text only. MAPE is the mean percentage error on likes, pulled up by a few Shorts far above the prediction; the median of that error is 48% for the final model, against 54% for the channel median. Global Spearman, on likes, already reaches 0.86 with the channel median alone (above the 0.55 to 0.85 range cited in the literature): it mostly measures channel size. That is why the comparison that matters for choosing creatives is the within-channel one.
+
+Month by month on the test set, the metadata and text model beats the channel median in every month, and the error does not grow over the period: MAE log of 0.683 in June (0.735 for the median), 0.657 in July (0.687) and 0.635 in August (0.686).
 
 ### Trained model × LLM without a model
 
@@ -263,7 +282,9 @@ The LLM errs more than the channel median and ranks Shorts of the same channel a
 - Motion through optical flow, to separate camera motion from motion in the scene.
 - Correct the bias of channels with stale history (for example, a time-weighted median).
 - Extract video for the whole dataset, not only the sample, so the model learns more from content.
-- Comparables by visual embedding, not only by title (search over the vectors already computed).
+- Comparables by visual embedding and by on-screen text (OCR), not only by title (search over the vectors and texts already extracted).
+- Compare LightGBM with CatBoost and XGBoost and search hyperparameters on validation.
+- Seasonality: the effect of commercial dates (Mother's Day, Black Friday) and trends over the year.
 - Rebuild the global part of the dataset around communities that influence Brazilian content.
 - Dynamic training: receive a client's ad dataset in the same schema and train a specialist model.
 - Simulation of variations (caption, time, duration) re-scored by the model before publishing.

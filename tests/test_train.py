@@ -89,3 +89,23 @@ def test_subscriber_baseline_handles_hidden_subscribers():
     # Canal sem inscritos fica com a mediana do próprio canal.
     assert pred[test.index[test["channel_id"] == "UCb"][0]] == 0
     assert np.isfinite(pred).all()
+
+
+def test_model_choice_frame_keeps_numbers_and_texts_apart():
+    from creative_predictor.model.model_choice import _sklearn_frame, _sklearn_models
+
+    frame = pd.DataFrame(
+        {
+            "duration_s": pd.array([30, None], dtype="Int64"),
+            "has_captions": [True, False],
+            "sector": pd.Categorical(["moda", "beleza"]),
+        }
+    )
+    out = _sklearn_frame(frame, list(frame))
+    assert out["duration_s"].dtype == float and np.isnan(out.loc[1, "duration_s"])
+    assert out["has_captions"].tolist() == [1.0, 0.0]
+    assert out["sector"].tolist() == ["moda", "beleza"]
+    assert set(_sklearn_models(out)) == {
+        "sklearn_hist_gradient_boosting",
+        "ridge_linear",
+    }
