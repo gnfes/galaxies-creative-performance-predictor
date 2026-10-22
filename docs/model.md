@@ -10,7 +10,7 @@ Ficha do modelo no formato de *model cards* (Mitchell et al., 2019, e o modelo d
 - **Alvo**: `log((curtidas + 1) / (mediana + 1))`, em que a mediana é a das curtidas dos 20 Shorts do canal publicados pelo menos 30 dias antes. As curtidas absolutas voltam pela mediana do canal.
 - **Versão**: 19/10/2026, treinado em 29.916 Shorts de 87 canais (`data/models/predictor.joblib`).
 - **Arquitetura**:
-  - três LightGBM: previsão com perda Huber e quantis P10 e P90 para o intervalo;
+  - três LightGBM: previsão com perda Huber e quantis P10 e P90 para o intervalo (a LightGBM com Huber teve o menor erro na validação contra L1, L2, o gradient boosting do scikit-learn e uma regressão Ridge: [`reports/model_choice_results.csv`](../reports/model_choice_results.csv));
   - folga conformal (CQR) calibrada na validação;
   - faixas pelos quantis P25, P75 e P95 do alvo no treino (0,56×, 1,70× e 7,4× a mediana do canal).
   - PCA de 16 componentes por tipo de embedding.

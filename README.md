@@ -16,7 +16,7 @@ Recorte:
 - **Setores**: moda, beleza e automotivo, com canais de marcas e de criadores de conteúdo.
 - **Região**: o Brasil é o foco e o único conjunto de teste; canais globais entram só no treino.
 - **Métrica**: curtidas em relação à mediana do próprio canal. Views ficaram de fora: o YouTube mudou a contagem de views de Shorts em 31/03/2025 (cada play ou repetição passou a contar), e as views de canais de marca incluem mídia paga.
-- **Momento da previsão**: antes da publicação, sem nenhuma métrica do próprio post.
+- **Momento da previsão**: antes da publicação, sem nenhuma métrica do próprio post (views, curtidas e comentários só existem depois de publicar e não entram como features).
 
 ## Base
 
@@ -27,6 +27,7 @@ Ficha completa em [`docs/dataset.md`](docs/dataset.md); análise exploratória e
 - **Volume**: 87 canais de treino (60 do Brasil) e 13 de demonstração; 30.187 Shorts na janela, 29.916 com alvo. A parte multimodal (vídeo, áudio e atributos por modelo de visão) cobre 9.662 Shorts de uma amostra de 9.769 (até 120 por canal, espalhados no tempo; os demais saíram do ar ou seguiram bloqueados pelo YouTube), 9.648 deles com a rubrica do extrator.
 - **Licença e uso**: os dados seguem os Termos de Serviço dos serviços de API do YouTube, e os vídeos pertencem aos canais. O repositório não redistribui mídia, respostas da API nem as tabelas coletadas; guarda a lista de canais, o código que refaz a coleta e resultados agregados.
 - **O que a base não representa**: outras plataformas, anúncios pagos (canais com impulsionamento evidente ficaram de fora), métricas além de curtidas, todas as marcas do setor (GAC, GWM, Renner, C&A e Shein Brasil não têm canal oficial ativo de Shorts) e a evolução de cada post no tempo.
+- **Por que a base tem esse tamanho**: os metadados cobrem 87 canais e 30.187 Shorts, acima da meta do brief (5 a 15 mil vídeos, 60 ou mais canais). Mais canais esbarram nos critérios de entrada: pelo menos 50 Shorts na janela, conteúdo do próprio setor e nem mídia paga dominante nem curtidas ocultas. Muitas marcas brasileiras postam poucos Shorts ou não têm canal oficial ativo. A janela começa em 15/10/2024, quando os Shorts passaram a aceitar até 3 minutos; antes disso o formato era outro. A parte com vídeo é uma amostra de até 120 Shorts por canal porque a extração foi o gargalo: a cota gratuita do extrator processa de 1 a 4 vídeos por minuto e o YouTube bloqueava os downloads a cada ~500. A amostra levou cerca de três dias e meio; a base inteira levaria mais de uma semana nesse ritmo.
 
 ## Arquitetura
 
@@ -175,6 +176,22 @@ uv run python -m creative_predictor.predict.bundle                     # modelo 
 
 O criativo pode chegar como vídeo, como imagem (tratada como um vídeo de um quadro, sem áudio) ou só como texto (legenda e metadados). O modelo foi treinado e avaliado só com vídeos; a previsão para uma imagem não foi avaliada.
 
+### Como o modelo final foi escolhido
+
+1. **Algoritmo e perda**: com as mesmas features de metadados e texto e o mesmo split temporal, comparamos na validação o LightGBM com as perdas Huber, L1 e L2, o gradient boosting do scikit-learn e uma regressão linear (Ridge). O LightGBM com Huber teve o menor erro, e o teste confirmou a ordem pelo MAE. As alternativas usaram configurações padrão, sem ajuste, então a comparação é indicativa ([`reports/model_choice_results.csv`](reports/model_choice_results.csv), [`model/model_choice.py`](src/creative_predictor/model/model_choice.py)). A LightGBM também aceita campos vazios e categorias sem pré-processamento, o que importa porque dois terços da base não têm vídeo extraído. CatBoost e XGBoost não foram comparados.
+
+   | Modelo | MAE log na validação | MAE log no teste | Par a par no teste |
+   |---|---:|---:|---:|
+   | **LightGBM, Huber (escolhido)** | **0,675** | **0,658** | **0,612** |
+   | LightGBM, L2 | 0,678 | 0,668 | 0,609 |
+   | LightGBM, L1 | 0,681 | 0,663 | 0,607 |
+   | Gradient boosting do scikit-learn | 0,689 | 0,676 | 0,595 |
+   | Regressão linear (Ridge) | 0,707 | 0,681 | 0,608 |
+
+2. **Blocos de features**: o ganho de cada bloco foi medido no mesmo subconjunto do teste, com bootstrap sobre os canais (ver [Ganho de cada bloco](#ganho-de-cada-bloco)). O modelo final usa todos os blocos porque a combinação melhora a ordenação de forma significativa. A rubrica, sozinha, não tem ganho significativo e envia dados à API do Google; por isso ela é opcional na previsão.
+3. **Hiperparâmetros**: fixos (taxa de aprendizado 0,03, 31 folhas, mínimo de 50 Shorts por folha, amostragem de 80% das linhas e colunas), com parada antecipada na validação. Não houve busca de hiperparâmetros.
+4. **Modelo salvo**: a mesma configuração, retreinada com todos os Shorts com alvo.
+
 ## Metodologia
 
 - **Hipótese**: o conteúdo do criativo (texto, vídeo e áudio) melhora a ordenação entre Shorts do mesmo canal além do que o histórico do canal explica. Hipótese nula: um modelo só com o histórico do canal ordena tão bem quanto. Teste: o mesmo modelo com e sem cada bloco de conteúdo, no mesmo subconjunto do teste temporal, com intervalo de confiança por bootstrap sobre os canais.
@@ -215,6 +232,8 @@ Com bootstrap sobre os canais (intervalo de 90%), o modelo final ganha do de met
 | Metadados e texto, canais nunca vistos | 0,689 | 1,05 | 0,869 | 0,275 | 0,593 | 0,222 |
 
 No teste inteiro, só um terço dos Shorts tem vídeo extraído; os demais são previstos só com metadados e texto. O MAPE é o erro percentual médio nas curtidas, puxado por poucos Shorts muito acima do previsto; a mediana desse erro é de 48% no modelo final, contra 54% da mediana do canal. O Spearman global, sobre as curtidas, já chega a 0,86 só com a mediana do canal (acima da faixa de 0,55 a 0,85 citada na literatura): ele mede sobretudo o porte do canal. Por isso a comparação que importa para escolher criativos é a de dentro do canal.
+
+Mês a mês no teste, o modelo de metadados e texto bate a mediana do canal em todos os meses, e o erro não cresce ao longo do período: MAE log de 0,683 em junho (0,735 da mediana), 0,657 em julho (0,687) e 0,635 em agosto (0,686).
 
 ### Modelo treinado × LLM sem modelo
 
@@ -263,7 +282,9 @@ O LLM erra mais que a mediana do canal e ordena Shorts do mesmo canal no nível 
 - Movimento por optical flow, para separar o movimento da câmera do movimento em cena.
 - Corrigir o viés de canais com histórico desatualizado (por exemplo, uma mediana ponderada pelo tempo).
 - Extrair vídeo de toda a base, não só da amostra, para o modelo aprender mais com o conteúdo.
-- Comparáveis por embedding visual, não só pelo título (busca sobre os vetores já calculados).
+- Comparáveis por embedding visual e pelo texto na tela (OCR), não só pelo título (busca sobre os vetores e os textos já extraídos).
+- Comparar a LightGBM com CatBoost e XGBoost e buscar hiperparâmetros na validação.
+- Sazonalidade: efeito de datas comerciais (Dia das Mães, Black Friday) e tendências ao longo do ano.
 - Recompor a parte global da base por comunidades de influência sobre o conteúdo brasileiro.
 - Treino dinâmico: receber a base de anúncios de um cliente no mesmo esquema e treinar um modelo especialista.
 - Simulação de variações (legenda, horário, duração) re-pontuadas pelo modelo antes de publicar.

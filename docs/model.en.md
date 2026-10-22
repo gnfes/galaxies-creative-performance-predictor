@@ -10,7 +10,7 @@ Model card following the *model cards* format (Mitchell et al., 2019, and the Hu
 - **Target**: `log((likes + 1) / (median + 1))`, where the median is that of the likes of the channel's 20 Shorts published at least 30 days earlier. Absolute likes come back through the channel median.
 - **Version**: 10/19/2026, trained on 29,916 Shorts from 87 channels (`data/models/predictor.joblib`).
 - **Architecture**:
-  - three LightGBMs: the prediction with Huber loss and the P10 and P90 quantiles for the interval;
+  - three LightGBMs: the prediction with Huber loss and the P10 and P90 quantiles for the interval (LightGBM with Huber had the lowest error on validation against L1, L2, scikit-learn's gradient boosting and a Ridge regression: [`reports/model_choice_results.csv`](../reports/model_choice_results.csv));
   - a conformal margin (CQR) calibrated on validation;
   - bands from the P25, P75 and P95 quantiles of the training target (0.56×, 1.70× and 7.4× the channel median).
   - a 16-component PCA per embedding type.
